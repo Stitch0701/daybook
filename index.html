@@ -2,8 +2,19 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Daybook</title>
+
+<!-- App-like install on mobile/iPad -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#AD7556">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Daybook">
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -295,6 +306,11 @@
           <span class="battery-pct" id="daily-pct">0%</span>
         </div>
       </div>
+      <div class="status-card">
+        <div class="lbl">Google Sheets</div>
+        <button class="btn small" id="sync-drive-btn" style="margin-top:4px;">Sync now</button>
+        <div class="sub" id="sync-status">Not connected</div>
+      </div>
     </div>
   </div>
 
@@ -305,6 +321,26 @@
       <button class="btn small" id="quick-add-btn">Add</button>
     </div>
     <div class="quick-chips" id="quick-chips"></div>
+  </div>
+
+  <!-- ===== Google Sheets sync ===== -->
+  <div class="panel">
+    <div class="panel-head"><h2>Google Sheets sync</h2><span class="count" id="sync-status-label">Not connected</span></div>
+    <div id="sync-signed-out">
+      <button class="btn small" id="gsheets-signin-btn">Sign in with Google</button>
+    </div>
+    <div id="sync-signed-in" style="display:none;">
+      <div class="row2" style="margin-bottom:8px;">
+        <button class="btn small" id="gsheets-sync-btn">Sync now (push)</button>
+        <button class="btn small" id="gsheets-pull-btn">Pull from sheet</button>
+      </div>
+      <label>Connect to an existing sheet (paste link — do this on a new device to load your data)</label>
+      <div class="row2">
+        <input type="text" id="gsheets-connect-input" placeholder="Paste Google Sheet link or ID">
+        <button class="btn small" id="gsheets-connect-btn">Connect</button>
+      </div>
+      <div class="footer-note" style="text-align:left;margin-top:8px;" id="gsheets-link-note"></div>
+    </div>
   </div>
 
   <!-- ===== Week strip (top) ===== -->
@@ -455,7 +491,9 @@
 
 </div>
 
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.0/chart.umd.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <script>
 (function(){
 
@@ -507,6 +545,308 @@
       document.getElementById('save-note').textContent = " Saved to this device.";
     }catch(e){ document.getElementById('save-note').textContent = " Couldn't save."; }
   }
+
+  // ---------- google sheets sync ----------
+  var GOOGLE_CLIENT_ID = "484156423834-6l6boggn3e4ggpunjdefuvml4g1ec0rl.apps.googleusercontent.com";
+  var GOOGLE_SCOPES = "https://www.googleapis.com/auth/spreadsheets";
+  var gTokenClient = null;
+  var gAccessToken = null;
+  var gSpreadsheetId = localStorage.getItem("daybook-sheet-id") || null;
+
+  function gSheetUrl(){ return "https://docs.google.com/spreadsheets/d/" + gSpreadsheetId + "/edit"; }
+  function gSetStatus(msg, withLink){
+    var el = document.getElementById('sync-status');
+    if(withLink && gSpreadsheetId){
+      el.innerHTML = msg + ' — <a href="'+gSheetUrl()+'" target="_blank" rel="noopener" style="color:var(--chambray);">Open</a>';
+    } else {
+      el.textContent = msg;
+    }
+  }
+  (function initSyncStatus(){
+    if(gSpreadsheetId){ gSetStatus("Last synced here", true); }
+  })();
+
+  function gInitTokenClient(){
+    if(typeof google === 'undefined' || !google.accounts){ return null; }
+    if(gTokenClient) return gTokenClient;
+    gTokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: GOOGLE_CLIENT_ID,
+      scope: GOOGLE_SCOPES,
+      callback: ''
+    });
+    return gTokenClient;
+  }
+  function gRequestToken(callback){
+    var client = gInitTokenClient();
+    if(!client){ gSetStatus("Google sign-in still loading — try again"); return; }
+    client.callback = function(resp){
+      if(resp.error){ gSetStatus("Sign-in cancelled or failed"); return; }
+      gAccessToken = resp.access_token;
+      callback();
+    };
+    client.requestAccessToken({ prompt: gAccessToken ? '' : 'consent' });
+  }
+  function gHeaders(){
+    return { "Authorization": "Bearer " + gAccessToken, "Content-Type": "application/json" };
+  }
+  async function gCreateSpreadsheet(){
+    var body = {
+      properties: { title: "Daybook Export" },
+      sheets: ["Entries","Top Priority Tasks","Projects","Library","Health","Meals","Journal"].map(function(name){
+        return { properties: { title: name } };
+      })
+    };
+    var res = await fetch("https://sheets.googleapis.com/v4/spreadsheets", {
+      method: "POST", headers: gHeaders(), body: JSON.stringify(body)
+    });
+    if(!res.ok) throw new Error("create failed: " + res.status);
+    var json = await res.json();
+    gSpreadsheetId = json.spreadsheetId;
+    localStorage.setItem("daybook-sheet-id", gSpreadsheetId);
+  }
+  function gBuildSheetRows(){
+    var rows = {};
+    rows["Entries"] = [["ID","Date","Time","Type","Title","Category","Done"]].concat(
+      data.entries.map(function(e){ return [e.id, e.date, e.time||"", e.type, e.title, e.category, e.done?"Yes":"No"]; })
+    );
+    rows["Top Priority Tasks"] = [["ID","Title","Category","Intensity","Progress","Done"]].concat(
+      data.topTasks.map(function(t){ return [t.id, t.title, t.category, t.intensity||"low", t.progress, t.done?"Yes":"No"]; })
+    );
+    rows["Projects"] = [["ID","Title","Category","Status","Progress"]].concat(
+      data.projects.map(function(p){ return [p.id, p.title, p.category, p.status, p.progress]; })
+    );
+    rows["Library"] = [["ID","Title","Category","URL","Done"]].concat(
+      data.library.map(function(l){ return [l.id, l.title, l.category, l.url||"", l.done?"Yes":"No"]; })
+    );
+    rows["Health"] = [["Date","Steps"]].concat(
+      Object.keys(data.health).sort().map(function(d){ return [d, (data.health[d]&&data.health[d].steps)||0]; })
+    );
+    var mealRows = [];
+    Object.keys(data.meals).sort().forEach(function(d){
+      (data.meals[d]||[]).forEach(function(m){ mealRows.push([d, m.name, m.calories]); });
+    });
+    rows["Meals"] = [["Date","Food","Calories"]].concat(mealRows);
+    rows["Journal"] = [["Date","Entry"]].concat(
+      Object.keys(data.journal).filter(function(d){ return data.journal[d] && data.journal[d].trim(); }).sort()
+        .map(function(d){ return [d, data.journal[d]]; })
+    );
+    return rows;
+  }
+  async function gWriteSheets(){
+    var rows = gBuildSheetRows();
+    var payload = Object.keys(rows).map(function(name){ return { range: "'"+name+"'!A1", values: rows[name] }; });
+    var res = await fetch("https://sheets.googleapis.com/v4/spreadsheets/" + gSpreadsheetId + "/values:batchUpdate", {
+      method: "POST", headers: gHeaders(),
+      body: JSON.stringify({ valueInputOption: "RAW", data: payload })
+    });
+    if(!res.ok) throw new Error("write failed: " + res.status);
+  }
+  function gSyncNow(){
+    gSetStatus("Signing in…");
+    gRequestToken(async function(){
+      try{
+        gSetStatus("Syncing…");
+        if(!gSpreadsheetId){ await gCreateSpreadsheet(); }
+        await gWriteSheets();
+        var now = new Date();
+        gSetStatus("Synced " + pad(now.getHours()) + ":" + pad(now.getMinutes()), true);
+      }catch(e){
+        if(gSpreadsheetId){
+          try{
+            gSpreadsheetId = null; localStorage.removeItem("daybook-sheet-id");
+            await gCreateSpreadsheet(); await gWriteSheets();
+            gSetStatus("Synced (new sheet)", true);
+            return;
+          }catch(e2){}
+        }
+        gSetStatus("Sync failed — try again");
+      }
+    });
+  }
+  document.getElementById('sync-drive-btn').addEventListener('click', gSyncNow);
+
+  // ---------- google sheets sync ----------
+  var GOOGLE_CLIENT_ID = "484156423834-6l6boggn3e4ggpunjdefuvml4g1ec0rl.apps.googleusercontent.com";
+  var GSHEETS_SCOPE = "https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file";
+  var SHEET_TABS = ["Entries","TopTasks","Projects","Library","Health","Meals","Journal"];
+  var gAccessToken = null;
+  var gTokenClient = null;
+  var gSheetId = localStorage.getItem("daybook-sheet-id") || null;
+
+  function setSyncStatus(text){ document.getElementById('sync-status-label').textContent = text; }
+  function showSignedInUI(){
+    document.getElementById('sync-signed-out').style.display = 'none';
+    document.getElementById('sync-signed-in').style.display = 'block';
+    var note = document.getElementById('gsheets-link-note');
+    if(gSheetId){
+      note.innerHTML = 'Connected sheet: <a href="https://docs.google.com/spreadsheets/d/'+gSheetId+'" target="_blank" rel="noopener">open in Google Sheets</a>';
+    } else {
+      note.textContent = "No sheet yet — click \"Sync now\" to create one.";
+    }
+  }
+
+  function initGoogleAuth(){
+    if(typeof google === 'undefined' || !google.accounts){ setTimeout(initGoogleAuth, 400); return; }
+    gTokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: GOOGLE_CLIENT_ID,
+      scope: GSHEETS_SCOPE,
+      callback: function(resp){
+        if(resp && resp.access_token){
+          gAccessToken = resp.access_token;
+          setSyncStatus("Signed in");
+          showSignedInUI();
+        } else {
+          setSyncStatus("Sign-in failed");
+        }
+      }
+    });
+  }
+  initGoogleAuth();
+
+  document.getElementById('gsheets-signin-btn').addEventListener('click', function(){
+    if(!gTokenClient){ setSyncStatus("Still loading Google sign-in…"); return; }
+    gTokenClient.requestAccessToken({ prompt: 'consent' });
+  });
+
+  function gFetch(url, opts){
+    opts = opts || {};
+    opts.headers = Object.assign({ "Authorization": "Bearer " + gAccessToken, "Content-Type": "application/json" }, opts.headers||{});
+    return fetch(url, opts).then(function(r){
+      if(!r.ok){ return r.text().then(function(t){ throw new Error("Sheets API error: "+r.status+" "+t); }); }
+      return r.json();
+    });
+  }
+
+  function createSpreadsheet(){
+    return gFetch("https://sheets.googleapis.com/v4/spreadsheets", {
+      method: "POST",
+      body: JSON.stringify({
+        properties: { title: "Daybook Data" },
+        sheets: SHEET_TABS.map(function(name){ return { properties: { title: name } }; })
+      })
+    }).then(function(res){
+      gSheetId = res.spreadsheetId;
+      localStorage.setItem("daybook-sheet-id", gSheetId);
+      return gSheetId;
+    });
+  }
+
+  function boolStr(b){ return b ? "TRUE" : "FALSE"; }
+  function toRows(){
+    var out = {};
+    out.Entries = [["id","date","time","type","title","category","done","carried"]].concat(
+      data.entries.map(function(e){ return [e.id,e.date,e.time||"",e.type,e.title,e.category,boolStr(e.done),boolStr(e.carried)]; })
+    );
+    out.TopTasks = [["id","title","category","intensity","progress","done"]].concat(
+      data.topTasks.map(function(t){ return [t.id,t.title,t.category,t.intensity||"low",t.progress,boolStr(t.done)]; })
+    );
+    out.Projects = [["id","title","category","status","progress"]].concat(
+      data.projects.map(function(p){ return [p.id,p.title,p.category,p.status,p.progress]; })
+    );
+    out.Library = [["id","date","title","category","url","done"]].concat(
+      data.library.map(function(l){ return [l.id,l.date,l.title,l.category,l.url||"",boolStr(l.done)]; })
+    );
+    out.Health = [["date","steps"]].concat(
+      Object.keys(data.health).map(function(d){ return [d, data.health[d].steps||0]; })
+    );
+    out.Meals = [["date","id","name","calories"]];
+    Object.keys(data.meals).forEach(function(d){
+      (data.meals[d]||[]).forEach(function(m){ out.Meals.push([d,m.id,m.name,m.calories]); });
+    });
+    out.Journal = [["date","entry"]].concat(
+      Object.keys(data.journal).map(function(d){ return [d, data.journal[d]]; })
+    );
+    return out;
+  }
+
+  function pushToSheet(){
+    setSyncStatus("Syncing…");
+    var ensureId = gSheetId ? Promise.resolve(gSheetId) : createSpreadsheet();
+    return ensureId.then(function(id){
+      var rowsByTab = toRows();
+      var clearRanges = SHEET_TABS.map(function(t){ return t+"!A1:Z5000"; });
+      return gFetch("https://sheets.googleapis.com/v4/spreadsheets/"+id+"/values:batchClear", {
+        method: "POST", body: JSON.stringify({ ranges: clearRanges })
+      }).then(function(){
+        var data_ = SHEET_TABS.map(function(t){ return { range: t+"!A1", values: rowsByTab[t] }; });
+        return gFetch("https://sheets.googleapis.com/v4/spreadsheets/"+id+"/values:batchUpdate", {
+          method: "POST", body: JSON.stringify({ valueInputOption: "RAW", data: data_ })
+        });
+      });
+    }).then(function(){
+      setSyncStatus("Synced just now");
+      showSignedInUI();
+    }).catch(function(err){
+      console.error(err); setSyncStatus("Sync failed — see console");
+    });
+  }
+
+  function fromRows(rowsByTab){
+    var rows;
+    rows = (rowsByTab.Entries||[]).slice(1);
+    data.entries = rows.map(function(r){
+      return { id:r[0], date:r[1], time:r[2]||null, type:r[3], title:r[4], category:r[5], done:r[6]==="TRUE", carried:r[7]==="TRUE", originalDate:null, noCarry:false };
+    });
+    rows = (rowsByTab.TopTasks||[]).slice(1);
+    data.topTasks = rows.map(function(r){
+      return { id:r[0], title:r[1], category:r[2], intensity:r[3]||"low", progress:parseInt(r[4],10)||0, done:r[5]==="TRUE", expanded:false };
+    });
+    rows = (rowsByTab.Projects||[]).slice(1);
+    data.projects = rows.map(function(r){
+      return { id:r[0], title:r[1], category:r[2], status:r[3], progress:parseInt(r[4],10)||0 };
+    });
+    rows = (rowsByTab.Library||[]).slice(1);
+    data.library = rows.map(function(r){
+      return { id:r[0], date:r[1], title:r[2], category:r[3], url:r[4]||"", done:r[5]==="TRUE" };
+    });
+    rows = (rowsByTab.Health||[]).slice(1);
+    data.health = {};
+    rows.forEach(function(r){ data.health[r[0]] = { steps: parseInt(r[1],10)||0 }; });
+    rows = (rowsByTab.Meals||[]).slice(1);
+    data.meals = {};
+    rows.forEach(function(r){
+      var d = r[0]; data.meals[d] = data.meals[d] || [];
+      data.meals[d].push({ id:r[1], name:r[2], calories:parseInt(r[3],10)||0 });
+    });
+    rows = (rowsByTab.Journal||[]).slice(1);
+    data.journal = {};
+    rows.forEach(function(r){ data.journal[r[0]] = r[1]; });
+  }
+
+  function pullFromSheet(){
+    if(!gSheetId){ setSyncStatus("No sheet connected yet"); return; }
+    setSyncStatus("Pulling…");
+    var params = SHEET_TABS.map(function(t){ return "ranges="+encodeURIComponent(t+"!A1:Z5000"); }).join("&");
+    return gFetch("https://sheets.googleapis.com/v4/spreadsheets/"+gSheetId+"/values:batchGet?"+params)
+      .then(function(res){
+        var rowsByTab = {};
+        (res.valueRanges||[]).forEach(function(vr, i){ rowsByTab[SHEET_TABS[i]] = vr.values || []; });
+        fromRows(rowsByTab);
+        scheduleSave(); renderAll();
+        setSyncStatus("Pulled just now");
+      }).catch(function(err){
+        console.error(err); setSyncStatus("Pull failed — see console");
+      });
+  }
+
+  document.getElementById('gsheets-sync-btn').addEventListener('click', function(){
+    if(!gAccessToken){ gTokenClient.requestAccessToken({ prompt: '' }); return; }
+    pushToSheet();
+  });
+  document.getElementById('gsheets-pull-btn').addEventListener('click', function(){
+    if(!gAccessToken){ gTokenClient.requestAccessToken({ prompt: '' }); return; }
+    pullFromSheet();
+  });
+  document.getElementById('gsheets-connect-btn').addEventListener('click', function(){
+    var raw = document.getElementById('gsheets-connect-input').value.trim();
+    if(!raw) return;
+    var m = raw.match(/\/d\/([a-zA-Z0-9-_]+)/);
+    gSheetId = m ? m[1] : raw;
+    localStorage.setItem("daybook-sheet-id", gSheetId);
+    document.getElementById('gsheets-connect-input').value = "";
+    showSignedInUI();
+    setSyncStatus("Connected — click \"Pull from sheet\" to load its data");
+  });
 
   // ---------- profile ----------
   document.getElementById('f-name').addEventListener('input', function(e){
@@ -567,13 +907,18 @@
       return;
     }
     if(navigator.geolocation){
+      document.getElementById('weather-loc').textContent = "Locating…";
       navigator.geolocation.getCurrentPosition(function(pos){
         fetchWeather(pos.coords.latitude.toFixed(3), pos.coords.longitude.toFixed(3), "");
-      }, function(){
-        document.getElementById('weather-loc').textContent = "Location off — set manually";
-      }, {timeout:6000});
+      }, function(err){
+        var msg = "Location unavailable — set manually";
+        if(err && err.code === 1) msg = "Location permission denied — set manually";
+        else if(err && err.code === 2) msg = "Location signal unavailable — set manually";
+        else if(err && err.code === 3) msg = "Location timed out — set manually";
+        document.getElementById('weather-loc').textContent = msg;
+      }, {timeout:10000, maximumAge:600000});
     }else{
-      document.getElementById('weather-loc').textContent = "Set manually";
+      document.getElementById('weather-loc').textContent = "Not supported — set manually";
     }
   }
 
