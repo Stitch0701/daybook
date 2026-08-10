@@ -341,6 +341,23 @@
   .lib-item .lib-link.disabled{color:var(--clove-faint);pointer-events:none;}
   .lib-item.done input[type=text]{text-decoration:line-through;color:var(--clove-faint);}
 
+  /* ---------- today: project status ---------- */
+  .proj-mini-row{display:flex;align-items:center;gap:8px;padding:7px 4px;border-bottom:1px solid var(--line);font-size:12.5px;}
+  .proj-mini-row:last-child{border-bottom:none;}
+  .proj-mini-row .proj-mini-title{flex:1;font-weight:500;color:var(--clove);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .proj-mini-status{font-size:9.5px;text-transform:uppercase;letter-spacing:0.03em;padding:2px 8px;border-radius:20px;white-space:nowrap;background:var(--sandstone-soft);color:var(--clove-soft);}
+  .proj-mini-status.inprogress{background:var(--chambray-soft);color:var(--chambray);}
+  .proj-mini-status.review{background:var(--terracotta-soft);color:var(--terracotta);}
+  .proj-mini-status.done{background:var(--chambray);color:#fff;}
+  .proj-mini-pct{font-family:var(--font-mono);font-size:11px;color:var(--clove-soft);min-width:32px;text-align:right;}
+
+  /* ---------- alarms ---------- */
+  .alarm-item{display:flex;align-items:center;gap:10px;padding:7px 4px;border-bottom:1px solid var(--line);}
+  .alarm-item:last-child{border-bottom:none;}
+  .alarm-item .alarm-time{font-family:var(--font-mono);font-size:14px;font-weight:600;color:var(--clove);min-width:52px;}
+  .alarm-item .alarm-label{flex:1;font-size:12.5px;color:var(--clove-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .alarm-item.disabled .alarm-time,.alarm-item.disabled .alarm-label{color:var(--clove-faint);}
+
   /* ---------- journal ---------- */
   .journal-history{margin-top:10px;}
   .jh-item{font-size:12px;padding:5px 0;border-bottom:1px solid var(--line);cursor:pointer;color:var(--clove-soft);}
@@ -401,8 +418,8 @@
       <button class="nav-item" data-page="upcoming"><span class="nav-icon">📥</span>Upcoming</button>
       <button class="nav-item" data-page="projects"><span class="nav-icon">📁</span>Projects</button>
       <button class="nav-item" data-page="calendar"><span class="nav-icon">🗓️</span>Calendar</button>
-      <button class="nav-item" data-page="trends"><span class="nav-icon">📈</span>Trends</button>
       <button class="nav-item" data-page="health"><span class="nav-icon">❤️</span>Health</button>
+      <button class="nav-item" data-page="trends"><span class="nav-icon">📈</span>Trends</button>
       <button class="nav-item" data-page="library"><span class="nav-icon">📚</span>Library</button>
       <button class="nav-item" data-page="journal"><span class="nav-icon">✍️</span>Journal</button>
       <button class="nav-item" data-page="sync"><span class="nav-icon">☁️</span>Sync</button>
@@ -440,7 +457,8 @@
 
     <!-- ===== TODAY ===== -->
     <section class="page active" id="page-today">
-      <h1 class="page-title">Today</h1>
+      <h1 class="page-title" id="greeting-title">Today</h1>
+      <p class="page-sub" id="greeting-quote" style="display:none;"></p>
       <p class="page-sub">Quick capture — plan the day in under a minute.</p>
 
       <div class="block quick-add-block">
@@ -458,7 +476,18 @@
             <button class="mini-btn clear-btn" data-clear="today" title="Clear today's list">Clear</button>
           </span>
         </div>
+        <p class="page-sub" style="margin:0 0 8px;">Everything on for today — meetings, tasks, and reminders together.</p>
         <div id="today-list"></div>
+      </div>
+
+      <div class="block">
+        <div class="block-head"><h2>Project status</h2>
+          <span style="display:flex;align-items:center;gap:8px;">
+            <span class="count" id="today-projects-count"></span>
+            <button class="mini-btn" style="width:auto;font-size:11px;color:var(--chambray);" id="today-open-projects-btn">Open board &rarr;</button>
+          </span>
+        </div>
+        <div id="today-projects-list"></div>
       </div>
 
       <div class="block">
@@ -473,6 +502,21 @@
           <button class="btn small" id="toptask-add-btn">Add</button>
         </div>
         <div class="toptask-list" id="toptask-list"></div>
+      </div>
+
+      <div class="block">
+        <div class="block-head"><h2>Alarms</h2>
+          <span style="display:flex;align-items:center;gap:8px;">
+            <span class="count" id="alarm-count"></span>
+            <button class="mini-btn clear-btn" data-clear="alarms" title="Clear all alarms">Clear</button>
+          </span>
+        </div>
+        <div class="row3" style="margin-bottom:8px;">
+          <input type="time" id="f-alarm-time">
+          <input type="text" id="f-alarm-label" placeholder="Label (optional)">
+          <button class="btn small" id="alarm-add-btn">Set alarm</button>
+        </div>
+        <div id="alarm-list"></div>
       </div>
 
       <div class="block">
@@ -573,34 +617,6 @@
       </div>
     </section>
 
-    <!-- ===== TRENDS ===== -->
-    <section class="page" id="page-trends">
-      <h1 class="page-title">Trends</h1>
-      <p class="page-sub">Steps and calories, by day, month, quarter, or year.</p>
-
-      <div class="block">
-        <div class="block-head"><h2>Overview</h2><span class="count" id="trend-year-label"></span></div>
-        <div class="trend-controls">
-          <div class="trend-metric" id="trend-metric">
-            <div class="trend-metric-opt active" data-metric="steps">Steps</div>
-            <div class="trend-metric-opt" data-metric="calories">Calories</div>
-          </div>
-          <div class="trend-range" id="trend-range">
-            <div class="trend-range-opt active" data-range="daily">Daily</div>
-            <div class="trend-range-opt" data-range="monthly">Monthly split</div>
-            <div class="trend-range-opt" data-range="quarterly">Quarterly split</div>
-            <div class="trend-range-opt" data-range="annual">Annual split</div>
-          </div>
-          <div class="trend-year-nav" id="trend-year-nav">
-            <button id="trend-year-prev">&larr;</button>
-            <button id="trend-year-next">&rarr;</button>
-          </div>
-        </div>
-        <div class="trend-stat-row" id="trend-stat-row"></div>
-        <div class="trend-chart-wrap"><canvas id="trend-chart" height="90"></canvas></div>
-      </div>
-    </section>
-
     <!-- ===== HEALTH ===== -->
     <section class="page" id="page-health">
       <h1 class="page-title">Health</h1>
@@ -651,6 +667,34 @@
         </div>
         <button class="btn small" id="meal-add-btn" style="width:100%;margin-top:6px;">Log</button>
         <div id="meal-list" style="margin-top:8px;"></div>
+      </div>
+    </section>
+
+    <!-- ===== TRENDS ===== -->
+    <section class="page" id="page-trends">
+      <h1 class="page-title">Trends</h1>
+      <p class="page-sub">Steps and calories, by day, month, quarter, or year.</p>
+
+      <div class="block">
+        <div class="block-head"><h2>Overview</h2><span class="count" id="trend-year-label"></span></div>
+        <div class="trend-controls">
+          <div class="trend-metric" id="trend-metric">
+            <div class="trend-metric-opt active" data-metric="steps">Steps</div>
+            <div class="trend-metric-opt" data-metric="calories">Calories</div>
+          </div>
+          <div class="trend-range" id="trend-range">
+            <div class="trend-range-opt active" data-range="daily">Daily</div>
+            <div class="trend-range-opt" data-range="monthly">Monthly split</div>
+            <div class="trend-range-opt" data-range="quarterly">Quarterly split</div>
+            <div class="trend-range-opt" data-range="annual">Annual split</div>
+          </div>
+          <div class="trend-year-nav" id="trend-year-nav">
+            <button id="trend-year-prev">&larr;</button>
+            <button id="trend-year-next">&rarr;</button>
+          </div>
+        </div>
+        <div class="trend-stat-row" id="trend-stat-row"></div>
+        <div class="trend-chart-wrap"><canvas id="trend-chart" height="90"></canvas></div>
       </div>
     </section>
 
@@ -726,6 +770,12 @@
       </div>
 
       <div class="block">
+        <div class="block-head"><h2>Notifications</h2><span class="count" id="notif-status-label">Not enabled</span></div>
+        <p class="page-sub" style="margin-bottom:10px;">Pop-out alerts for alarms and for tasks/meetings 5 minutes before they're due. Your browser will ask for permission once.</p>
+        <button class="btn small" id="notif-enable-btn">Enable notifications</button>
+      </div>
+
+      <div class="block">
         <div class="block-head"><h2>Export</h2></div>
         <p class="page-sub" style="margin-bottom:10px;">Download everything logged for a day — tasks, meetings, priorities, health, meals, journal, and the library queue — as a single PDF.</p>
         <div class="row2">
@@ -745,7 +795,7 @@
   var STORAGE_KEY = "daybook-data";
   var data = {
     profile:{name:""},
-    entries:[], topTasks:[], projects:[], library:[],
+    entries:[], topTasks:[], projects:[], library:[], alarms:[],
     meals:{}, health:{}, journal:{}, journalFiles:{},
     settings:{lat:null,lon:null,locLabel:"",manualWeather:false,tempOverride:null,condOverride:"",autoCarry:true,themeMode:"auto"}
   };
@@ -977,6 +1027,7 @@
   // ---------- profile ----------
   document.getElementById('f-name').addEventListener('input', function(e){
     data.profile.name = e.target.value; scheduleSave();
+    if(typeof updateGreeting === 'function') updateGreeting();
   });
 
   // ---------- weather ----------
@@ -1375,6 +1426,7 @@
       });
       board.appendChild(col);
     });
+    if(typeof renderTodayProjects === 'function') renderTodayProjects();
   }
   // Safety net: if a handle-press never turns into a real drag (e.g. a plain
   // click), disarm draggable on mouseup/touchend so cards don't stay draggable.
@@ -1885,6 +1937,36 @@
     setTimeout(function(){ if(t.parentNode) t.remove(); }, 12000);
   }
   var checkedMinute = null;
+  // ---------- browser notifications ----------
+  function ensureNotificationPermission(){
+    if(!('Notification' in window)) return;
+    if(Notification.permission === 'default'){ Notification.requestPermission().then(renderNotifStatus); }
+  }
+  function notifyOS(title, body){
+    if(!('Notification' in window) || Notification.permission !== 'granted') return;
+    try{ new Notification(title, { body: body, icon: 'icon-192.png' }); }catch(e){}
+  }
+  function renderNotifStatus(){
+    var el = document.getElementById('notif-status-label');
+    if(!el) return;
+    if(!('Notification' in window)){ el.textContent = "Not supported"; return; }
+    el.textContent = Notification.permission === 'granted' ? "Enabled"
+      : Notification.permission === 'denied' ? "Blocked — allow in browser settings"
+      : "Not enabled";
+  }
+  var notifEnableBtn = document.getElementById('notif-enable-btn');
+  if(notifEnableBtn){
+    notifEnableBtn.addEventListener('click', function(){
+      if('Notification' in window){ Notification.requestPermission().then(renderNotifStatus); }
+    });
+  }
+  function minusMinutes(hhmmStr, mins){
+    var parts = hhmmStr.split(':');
+    var total = parseInt(parts[0],10)*60 + parseInt(parts[1],10) - mins;
+    if(total < 0) total += 1440;
+    return pad(Math.floor(total/60)) + ":" + pad(total%60);
+  }
+
   function checkTime(){
     var now = new Date();
     var hhmm = pad(now.getHours())+":"+pad(now.getMinutes());
@@ -1893,9 +1975,28 @@
     checkedMinute = hhmm;
     var today = todayStr(); var changed=false;
     data.entries.forEach(function(e){
-      if(e.date===today && e.time===hhmm && !e.done && e.lastReminded!==hhmm){
+      if(e.date!==today || e.done) return;
+      if(!e.time) return;
+      if(e.time===hhmm && e.lastReminded!==hhmm){
         e.lastReminded = hhmm; changed=true;
-        showToast((e.type.charAt(0).toUpperCase()+e.type.slice(1))+": "+e.title, e.category);
+        var label = (e.type.charAt(0).toUpperCase()+e.type.slice(1))+": "+e.title;
+        showToast(label, e.category);
+        notifyOS("Starting now", e.title);
+        playBeep();
+      }
+      var preTime = minusMinutes(e.time, 5);
+      if(preTime===hhmm && e.preNotified!==hhmm){
+        e.preNotified = hhmm; changed=true;
+        showToast("In 5 minutes: "+e.title, e.category);
+        notifyOS("Coming up in 5 minutes", "You have “"+e.title+"” to look over — starts at "+e.time+".");
+        playBeep();
+      }
+    });
+    data.alarms.forEach(function(a){
+      if(a.enabled!==false && a.time===hhmm){
+        var label = a.label && a.label.trim() ? a.label.trim() : "Alarm";
+        showToast("⏰ "+label, "");
+        notifyOS("Alarm", label);
         playBeep();
       }
     });
@@ -1921,6 +2022,104 @@
     document.getElementById('date-line').textContent = d.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'});
     applyTheme();
     renderTodayUpcoming();
+    updateGreeting();
+  }
+
+  // ---------- greeting + daily motivational quote ----------
+  var MOTIVATIONAL_QUOTES = [
+    "Small steps every day add up to big change.",
+    "You don't have to be great to start, but you have to start to be great.",
+    "Progress, not perfection.",
+    "One task at a time is still moving forward.",
+    "Today is a fresh page — write something good on it.",
+    "Discipline is choosing what you want most over what you want now.",
+    "Done is better than perfect.",
+    "You're allowed to go at your own pace.",
+    "Focus on being productive instead of busy.",
+    "Every accomplishment starts with the decision to try.",
+    "Rest is part of the work, not a break from it.",
+    "The secret of getting ahead is getting started.",
+    "Small wins compound — keep stacking them.",
+    "Be patient with yourself, you're doing better than you think.",
+    "A little progress each day adds up to big results.",
+    "Show up for yourself today, the way you would for someone you love.",
+    "Consistency beats intensity.",
+    "You made it to today — that already counts for something.",
+    "Take the next right step, not the whole staircase.",
+    "Your future self is counting on what you do today."
+  ];
+  function pickDailyQuote(){
+    var seed = todayStr().replace(/-/g, "");
+    var idx = parseInt(seed, 10) % MOTIVATIONAL_QUOTES.length;
+    return MOTIVATIONAL_QUOTES[idx];
+  }
+  function updateGreeting(){
+    var titleEl = document.getElementById('greeting-title');
+    var quoteEl = document.getElementById('greeting-quote');
+    if(!titleEl || !quoteEl) return;
+    var h = new Date().getHours();
+    var name = (data.profile.name || "").trim();
+    var suffix = name ? ", " + name : "";
+    var greeting;
+    if(h>=5 && h<12) greeting = "Good morning" + suffix;
+    else if(h>=12 && h<17) greeting = "Good afternoon" + suffix;
+    else if(h>=17 && h<21) greeting = "Good evening" + suffix;
+    else greeting = "Good night" + suffix;
+    titleEl.textContent = greeting;
+    if(h>=5 && h<12){
+      quoteEl.textContent = "✨ " + pickDailyQuote();
+      quoteEl.style.display = "";
+    } else {
+      quoteEl.style.display = "none";
+    }
+  }
+
+  // ---------- today: project status snapshot ----------
+  document.getElementById('today-open-projects-btn').addEventListener('click', function(){ goToPage('projects'); });
+  function renderTodayProjects(){
+    var wrap = document.getElementById('today-projects-list');
+    document.getElementById('today-projects-count').textContent = data.projects.length;
+    wrap.innerHTML = "";
+    if(data.projects.length===0){ wrap.innerHTML = '<div class="empty-hint">No active projects yet.</div>'; return; }
+    var statusLabel = {};
+    STATUSES.forEach(function(s){ statusLabel[s[0]] = s[1]; });
+    data.projects.forEach(function(p){
+      var row = document.createElement('div'); row.className = 'proj-mini-row';
+      row.innerHTML =
+        '<span class="proj-mini-title">'+escapeHtml(p.title)+'</span>' +
+        '<span class="proj-mini-status '+p.status+'">'+(statusLabel[p.status]||p.status)+'</span>' +
+        '<span class="proj-mini-pct">'+p.progress+'%</span>';
+      wrap.appendChild(row);
+    });
+  }
+
+  // ---------- alarms ----------
+  document.getElementById('alarm-add-btn').addEventListener('click', function(){
+    var t = document.getElementById('f-alarm-time').value;
+    if(!t) return;
+    var label = document.getElementById('f-alarm-label').value.trim();
+    data.alarms.push({ id: uid(), time: t, label: label, enabled: true });
+    data.alarms.sort(function(a,b){ return a.time < b.time ? -1 : 1; });
+    document.getElementById('f-alarm-time').value = "";
+    document.getElementById('f-alarm-label').value = "";
+    scheduleSave(); renderAlarms();
+  });
+  function renderAlarms(){
+    var wrap = document.getElementById('alarm-list');
+    document.getElementById('alarm-count').textContent = data.alarms.length;
+    wrap.innerHTML = "";
+    if(data.alarms.length===0){ wrap.innerHTML = '<div class="empty-hint">No alarms set.</div>'; return; }
+    data.alarms.forEach(function(a){
+      var row = document.createElement('div'); row.className = 'alarm-item' + (a.enabled===false ? ' disabled' : '');
+      row.innerHTML =
+        '<input type="checkbox" '+(a.enabled!==false?'checked':'')+' class="alarm-toggle" title="Enable/disable">' +
+        '<span class="alarm-time">'+a.time+'</span>' +
+        '<span class="alarm-label">'+escapeHtml(a.label||"Alarm")+'</span>' +
+        '<button class="mini-btn alarm-del">✕</button>';
+      row.querySelector('.alarm-toggle').addEventListener('change', function(ev){ a.enabled = ev.target.checked; scheduleSave(); renderAlarms(); });
+      row.querySelector('.alarm-del').addEventListener('click', function(){ data.alarms = data.alarms.filter(function(x){ return x.id!==a.id; }); scheduleSave(); renderAlarms(); });
+      wrap.appendChild(row);
+    });
   }
 
   // ---------- theme (auto light/dark by time of day, or manual) ----------
@@ -1957,6 +2156,8 @@
     renderDailyBattery();
     renderTopTasks();
     renderKanban();
+    renderTodayProjects();
+    renderAlarms();
     var p = activeDate.split("-"); calYear=parseInt(p[0]); calMonth=parseInt(p[1])-1;
     renderCal();
     renderSpine();
@@ -1967,6 +2168,7 @@
     renderJournalFiles();
     renderWeek();
     renderTrends();
+    updateGreeting();
   }
 
   // ---------- sidebar page navigation ----------
@@ -2018,6 +2220,10 @@
         files.forEach(function(f){ jfileDelete(f.id); });
         if(data.journalFiles) delete data.journalFiles[activeDate];
       }
+    },
+    alarms: {
+      label: "clear all alarms",
+      run: function(){ data.alarms = []; }
     }
   };
   // Custom overlay instead of window.confirm(): the native dialog is silently
@@ -2172,6 +2378,8 @@
     setInterval(checkTime, 5000);
     checkTime();
     initWeather();
+    renderNotifStatus();
+    ensureNotificationPermission();
   }
 
   init();
