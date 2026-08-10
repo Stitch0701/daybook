@@ -7,7 +7,7 @@
 
 <!-- App-like install on mobile/iPad -->
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#AD7556">
+<meta name="theme-color" content="#2383E2">
 <link rel="icon" type="image/png" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -16,36 +16,69 @@
 <meta name="apple-mobile-web-app-title" content="Daybook">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root{
-    --chambray:#7A9CB3;
-    --chambray-soft:#E3ECF1;
-    --terracotta:#AD7556;
-    --terracotta-soft:#F1E4DA;
-    --sandstone:#DCCFB8;
-    --sandstone-soft:#EEE7DA;
-    --muslin:#F1EFE6;
-    --clove:#53443D;
-    --clove-soft:#8A7A70;
-    --clove-faint:#B3A69C;
-    --line:#DED2BF;
-    --danger:#A6432B;
-    --font-display:'Cormorant Garamond', serif;
-    --font-body:'Inter', sans-serif;
-    --font-mono:'IBM Plex Mono', monospace;
+    --chambray:#2383E2;
+    --chambray-soft:#E7F3FC;
+    --terracotta:#D9730D;
+    --terracotta-soft:#FAEBDD;
+    --sandstone:#DFDFDD;
+    --sandstone-soft:#F1F1EF;
+    --muslin:#FFFFFF;
+    --clove:#2F2E2B;
+    --clove-soft:#787774;
+    --clove-faint:#9B9A97;
+    --line:#E9E9E7;
+    --danger:#E03E3E;
+    --font-display:'Inter', -apple-system, sans-serif;
+    --font-body:'Inter', -apple-system, sans-serif;
+    --font-mono:'IBM Plex Mono', ui-monospace, monospace;
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
-  body{background:var(--muslin);color:var(--clove);font-family:var(--font-body);-webkit-font-smoothing:antialiased;}
-  .app{max-width:1280px;margin:0 auto;padding:24px 22px 90px;}
+  body{background:#FBFBFA;color:var(--clove);font-family:var(--font-body);-webkit-font-smoothing:antialiased;}
+  .app{display:flex;min-height:100vh;max-width:none;margin:0;padding:0;}
 
-  h2{font-family:var(--font-display);font-style:italic;font-weight:600;font-size:21px;margin:0;color:var(--clove);}
+  h2{font-family:var(--font-display);font-style:normal;font-weight:600;font-size:17px;margin:0;color:var(--clove);}
+
+  /* ---------- sidebar ---------- */
+  .sidebar{width:224px;flex:0 0 224px;background:#FBFBFA;border-right:1px solid var(--line);
+    padding:18px 10px;display:flex;flex-direction:column;gap:2px;position:sticky;top:0;height:100vh;overflow-y:auto;}
+  .sidebar-title{font-family:var(--font-display);font-weight:700;font-size:15px;padding:4px 10px 16px;color:var(--clove);}
+  .sidebar-name{padding:0 10px 14px;}
+  .sidebar-name input{width:100%;font-size:12.5px;border:1px solid var(--line);border-radius:6px;padding:6px 8px;
+    font-family:var(--font-body);background:#fff;color:var(--clove);}
+  .nav-group{display:flex;flex-direction:column;gap:1px;}
+  .nav-item{display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:6px;border:none;background:none;
+    font-size:13.5px;color:var(--clove-soft);cursor:pointer;text-align:left;width:100%;font-family:var(--font-body);}
+  .nav-item:hover{background:var(--sandstone-soft);color:var(--clove);}
+  .nav-item.active{background:var(--chambray-soft);color:var(--chambray);font-weight:600;}
+  .nav-icon{font-size:15px;width:18px;text-align:center;flex-shrink:0;}
+  .sidebar-footer{margin-top:auto;padding:10px;font-size:11px;color:var(--clove-faint);border-top:1px solid var(--line);}
+
+  /* ---------- content / pages ---------- */
+  .content{flex:1;min-width:0;padding:30px 40px 100px;max-width:920px;}
+  .page{display:none;}
+  .page.active{display:block;}
+  .page-title{font-family:var(--font-display);font-weight:700;font-size:26px;margin:0 0 4px;color:var(--clove);}
+  .page-sub{font-size:13px;color:var(--clove-soft);margin:0 0 22px;}
+
+  @media (max-width:768px){
+    .app{flex-direction:column;}
+    .sidebar{width:100%;flex:none;height:auto;position:sticky;top:0;z-index:10;
+      flex-direction:row;overflow-x:auto;padding:8px 8px;border-right:none;border-bottom:1px solid var(--line);
+      align-items:center;}
+    .sidebar-title,.sidebar-name,.sidebar-footer{display:none;}
+    .nav-group{flex-direction:row;gap:2px;}
+    .nav-item{white-space:nowrap;flex:0 0 auto;padding:8px 10px;}
+    .content{padding:18px 16px 90px;max-width:100%;}
+  }
 
   /* ---------- header ---------- */
   .topbar{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;
     border-bottom:2px solid var(--clove);padding-bottom:16px;margin-bottom:18px;}
-  .brand h1{font-family:var(--font-display);font-style:italic;font-weight:600;font-size:38px;margin:0;letter-spacing:-0.01em;}
+  .brand h1{font-family:var(--font-display);font-style:normal;font-weight:700;font-size:20px;margin:0;letter-spacing:-0.01em;}
   .greet{display:flex;align-items:center;gap:6px;margin-top:2px;}
   .greet span.lbl{font-size:13px;color:var(--clove-soft);}
   .greet input{border:none;background:none;font-family:var(--font-body);font-size:13px;font-weight:600;color:var(--clove);
@@ -80,6 +113,36 @@
 
   .panel{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:18px;}
   .panel-head{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:12px;}
+  .block{background:#fff;border:1px solid var(--line);border-radius:10px;padding:18px 20px;margin-bottom:16px;}
+  .block-head{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:14px;}
+  .quick-add-block{background:var(--chambray-soft);border-color:transparent;}
+
+  /* ---------- mini topbar (persistent across pages) ---------- */
+  .topbar-mini{display:flex;align-items:center;flex-wrap:wrap;gap:10px;font-size:12.5px;color:var(--clove-soft);
+    margin-bottom:22px;padding-bottom:14px;border-bottom:1px solid var(--line);}
+  .topbar-mini .tm-item{display:flex;align-items:center;gap:6px;position:relative;}
+  .topbar-mini .tm-sep{color:var(--sandstone);}
+  .topbar-mini #clock{font-family:var(--font-mono);font-weight:600;color:var(--clove);}
+  .topbar-mini .muted{color:var(--clove-faint);}
+  .mini-battery{width:40px;height:8px;background:var(--sandstone-soft);border-radius:4px;overflow:hidden;display:inline-block;}
+  .mini-battery .battery-fill{height:100%;background:var(--chambray);}
+  #weather-card .weather-form{position:absolute;top:22px;left:0;background:#fff;border:1px solid var(--line);
+    border-radius:8px;padding:8px;z-index:5;box-shadow:0 4px 14px rgba(0,0,0,0.08);}
+  #weather-card .weather-form input{width:70px;}
+
+  /* ---------- journal file attach ---------- */
+  .journal-attach-row{display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap;}
+  .journal-attach-row input[type=file]{display:none;}
+  #journal-file-hint{font-size:11px;color:var(--clove-faint);}
+  .jfile-list{display:flex;flex-direction:column;gap:6px;margin-top:10px;}
+  .jfile-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--sandstone-soft);}
+  .jfile-thumb{width:34px;height:34px;border-radius:6px;object-fit:cover;flex-shrink:0;background:#fff;border:1px solid var(--line);}
+  .jfile-icon{width:34px;height:34px;border-radius:6px;flex-shrink:0;background:#fff;border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;font-size:15px;}
+  .jfile-meta{flex:1;min-width:0;}
+  .jfile-name{font-size:12.5px;font-weight:500;color:var(--clove);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .jfile-sub{font-size:10.5px;color:var(--clove-faint);}
+  .jfile-actions{display:flex;gap:4px;}
   .panel-head .count{font-family:var(--font-mono);font-size:11.5px;color:var(--clove-soft);}
 
   label{display:block;font-size:11px;color:var(--clove-soft);margin:8px 0 3px;text-transform:uppercase;letter-spacing:0.05em;}
@@ -141,7 +204,7 @@
   /* ---------- subsections within merged panel ---------- */
   .subsection-head{display:flex;justify-content:space-between;align-items:center;margin:18px 0 10px;
     padding-top:14px;border-top:1px dashed var(--line);}
-  .subsection-head h3{font-family:var(--font-display);font-style:italic;font-weight:600;font-size:16px;margin:0;color:var(--clove);}
+  .subsection-head h3{font-family:var(--font-display);font-style:normal;font-weight:600;font-size:14.5px;margin:0;color:var(--clove);}
 
   /* ---------- entry chip (tasks / meetings / reminders) ---------- */
   .entry-row{display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:7px;margin:4px 0;
@@ -254,7 +317,7 @@
   .day-card.active{border-color:var(--clove);border-width:2px;}
   .day-card.today{background:var(--terracotta-soft);}
   .day-card .dname{font-size:10.5px;color:var(--clove-soft);text-transform:uppercase;}
-  .day-card .dnum{font-family:var(--font-display);font-style:italic;font-size:18px;font-weight:600;margin:2px 0;}
+  .day-card .dnum{font-family:var(--font-display);font-style:normal;font-size:17px;font-weight:600;margin:2px 0;}
   .day-card .frac{font-family:var(--font-mono);font-size:9.5px;color:var(--clove-soft);}
 
   /* ---------- toast ---------- */
@@ -273,24 +336,32 @@
 
 <div class="app">
 
-  <div class="topbar">
-    <div class="brand">
-      <h1>Daybook</h1>
-      <div class="greet">
-        <span class="lbl">Good day,</span>
-        <input type="text" id="f-name" placeholder="your name">
-      </div>
+  <nav class="sidebar">
+    <div class="sidebar-title">📓 Daybook</div>
+    <div class="sidebar-name"><input type="text" id="f-name" placeholder="Your name"></div>
+    <div class="nav-group">
+      <button class="nav-item active" data-page="today"><span class="nav-icon">☀️</span>Today</button>
+      <button class="nav-item" data-page="upcoming"><span class="nav-icon">📥</span>Upcoming</button>
+      <button class="nav-item" data-page="projects"><span class="nav-icon">📁</span>Projects</button>
+      <button class="nav-item" data-page="calendar"><span class="nav-icon">🗓️</span>Calendar</button>
+      <button class="nav-item" data-page="trends"><span class="nav-icon">📈</span>Trends</button>
+      <button class="nav-item" data-page="health"><span class="nav-icon">❤️</span>Health</button>
+      <button class="nav-item" data-page="library"><span class="nav-icon">📚</span>Library</button>
+      <button class="nav-item" data-page="journal"><span class="nav-icon">✍️</span>Journal</button>
+      <button class="nav-item" data-page="sync"><span class="nav-icon">☁️</span>Sync</button>
     </div>
-    <div class="status-row">
-      <div class="status-card">
-        <div class="lbl">Time</div>
-        <div class="val" id="clock">--:--</div>
-        <div class="sub" id="date-line">—</div>
-      </div>
-      <div class="status-card" id="weather-card">
-        <div class="lbl">Weather</div>
-        <div class="val" id="weather-val">—</div>
-        <div class="sub" id="weather-loc">Locating…</div>
+    <div class="sidebar-footer">
+      <span id="save-note" class="save-note"></span>
+    </div>
+  </nav>
+
+  <main class="content">
+
+    <div class="topbar-mini">
+      <span class="tm-item"><span id="clock">--:--</span> <span class="muted" id="date-line">—</span></span>
+      <span class="tm-sep">·</span>
+      <span class="tm-item" id="weather-card">
+        <span id="weather-val">—</span> <span class="muted" id="weather-loc">Locating…</span>
         <button class="weather-edit" id="weather-edit-btn">Set manually</button>
         <div class="weather-form" id="weather-form">
           <input type="number" id="f-temp" placeholder="°C">
@@ -298,136 +369,217 @@
           <input type="text" id="f-loc" placeholder="Location">
           <button class="btn small" id="weather-save-btn">Save</button>
         </div>
-      </div>
-      <div class="status-card">
-        <div class="lbl">Today's progress</div>
-        <div class="battery">
-          <div class="battery-shell"><div class="battery-fill" id="daily-battery" style="width:0%"></div></div>
-          <span class="battery-pct" id="daily-pct">0%</span>
+      </span>
+      <span class="tm-sep">·</span>
+      <span class="tm-item">Today <b id="daily-pct">0%</b>
+        <span class="mini-battery"><span class="battery-fill" id="daily-battery" style="width:0%"></span></span>
+      </span>
+    </div>
+
+    <!-- ===== TODAY ===== -->
+    <section class="page active" id="page-today">
+      <h1 class="page-title">Today</h1>
+      <p class="page-sub">Quick capture — plan the day in under a minute.</p>
+
+      <div class="block quick-add-block">
+        <div class="quick-add-row">
+          <input type="text" id="quick-add-input" placeholder='Quick add… e.g. "Call Sarah tomorrow 3pm work" — press Enter'>
+          <button class="btn small" id="quick-add-btn">Add</button>
         </div>
+        <div class="quick-chips" id="quick-chips"></div>
       </div>
-      <div class="status-card">
-        <div class="lbl">Google Sheets</div>
-        <button class="btn small" id="sync-drive-btn" style="margin-top:4px;">Sync now</button>
-        <div class="sub" id="sync-status">Not connected</div>
-      </div>
-    </div>
-  </div>
 
-  <!-- ===== Quick add (fast entry) ===== -->
-  <div class="panel quick-add-panel">
-    <div class="quick-add-row">
-      <input type="text" id="quick-add-input" placeholder='Quick add… e.g. "Call Sarah tomorrow 3pm work" — press Enter'>
-      <button class="btn small" id="quick-add-btn">Add</button>
-    </div>
-    <div class="quick-chips" id="quick-chips"></div>
-  </div>
-
-  <!-- ===== Google Sheets sync ===== -->
-  <div class="panel">
-    <div class="panel-head"><h2>Google Sheets sync</h2><span class="count" id="sync-status-label">Not connected</span></div>
-    <div id="sync-signed-out">
-      <button class="btn small" id="gsheets-signin-btn">Sign in with Google</button>
-    </div>
-    <div id="sync-signed-in" style="display:none;">
-      <div class="row2" style="margin-bottom:8px;">
-        <button class="btn small" id="gsheets-sync-btn">Sync now (push)</button>
-        <button class="btn small" id="gsheets-pull-btn">Pull from sheet</button>
-      </div>
-      <label>Connect to an existing sheet (paste link — do this on a new device to load your data)</label>
-      <div class="row2">
-        <input type="text" id="gsheets-connect-input" placeholder="Paste Google Sheet link or ID">
-        <button class="btn small" id="gsheets-connect-btn">Connect</button>
-      </div>
-      <div class="footer-note" style="text-align:left;margin-top:8px;" id="gsheets-link-note"></div>
-    </div>
-  </div>
-
-  <!-- ===== Week strip (top) ===== -->
-  <div class="panel">
-    <div class="panel-head"><h2>This week</h2></div>
-    <div class="week-strip" id="week-strip"></div>
-  </div>
-
-  <!-- ===== Add form + Upcoming ===== -->
-  <div class="grid grid-top">
-    <div class="panel">
-      <div class="panel-head adv-toggle" id="adv-toggle">
-        <h2>Advanced entry</h2><span class="count">exact date, type, category \u25BE</span>
-      </div>
-      <div id="adv-form" class="adv-form">
-        <label>What is it</label>
-        <div class="type-select" id="type-select">
-          <div class="type-opt active" data-v="task">Task</div>
-          <div class="type-opt" data-v="meeting">Meeting</div>
-          <div class="type-opt" data-v="reminder">Reminder</div>
+      <div class="block">
+        <div class="block-head"><h2>Today's list</h2>
+          <span style="display:flex;align-items:center;gap:8px;">
+            <span class="count" id="today-count"></span>
+            <button class="mini-btn clear-btn" data-clear="today" title="Clear today's list">Clear</button>
+          </span>
         </div>
-        <label>Title</label>
-        <input type="text" id="f-title" placeholder="e.g. Send Q3 report">
-        <div class="row2">
-          <div><label>Date</label><input type="date" id="f-date"></div>
-          <div><label>Time</label><input type="time" id="f-time"></div>
-        </div>
-        <label>Category</label>
-        <div class="cat-select" id="cat-select">
-          <div class="pill active" data-cat="work">Work</div>
-          <div class="pill" data-cat="personal">Personal</div>
-        </div>
-        <button class="btn" id="add-btn">Add entry</button>
+        <div id="today-list"></div>
       </div>
-    </div>
-    <div class="panel">
-      <div class="panel-head"><h2>Upcoming &amp; pending</h2><span class="count" id="upcoming-count"></span></div>
-      <div id="upcoming-list"></div>
-    </div>
-  </div>
 
-  <!-- ===== Today + Top priority tasks + Active projects (merged) ===== -->
-  <div class="panel">
-    <div class="panel-head"><h2>Today</h2><span class="count" id="today-count"></span></div>
-    <div id="today-list"></div>
+      <div class="block">
+        <div class="block-head"><h2>Top priority tasks</h2>
+          <span style="display:flex;align-items:center;gap:8px;">
+            <span class="count" id="overall-pct">0% avg</span>
+            <button class="mini-btn clear-btn" data-clear="toptasks" title="Clear priority tasks">Clear</button>
+          </span>
+        </div>
+        <div class="row2" style="margin-bottom:6px;">
+          <input type="text" id="f-toptask-title" placeholder="Add a priority task…">
+          <button class="btn small" id="toptask-add-btn">Add</button>
+        </div>
+        <div class="toptask-list" id="toptask-list"></div>
+      </div>
 
-    <div class="subsection-head"><h3>Top priority tasks</h3><span class="count" id="overall-pct">0% avg</span></div>
-    <div class="row2" style="margin-bottom:6px;">
-      <input type="text" id="f-toptask-title" placeholder="Add a priority task…">
-      <button class="btn small" id="toptask-add-btn">Add</button>
-    </div>
-    <div class="toptask-list" id="toptask-list"></div>
+      <div class="block">
+        <div class="block-head"><h2>Library queue</h2>
+          <span style="display:flex;align-items:center;gap:8px;">
+            <span class="count" id="today-library-count"></span>
+            <button class="mini-btn" style="width:auto;font-size:11px;color:var(--chambray);" id="today-open-library-btn">Open library &rarr;</button>
+          </span>
+        </div>
+        <div id="today-library-list"></div>
+      </div>
+    </section>
 
-    <div class="subsection-head"><h3>Active projects</h3></div>
-    <div class="row3" style="margin-bottom:10px;">
-      <input type="text" id="f-project-title" placeholder="Project name">
-      <select id="f-project-cat"><option value="work">Work</option><option value="personal">Personal</option></select>
-      <button class="btn small" id="project-add-btn">Add project</button>
-    </div>
-    <div class="kanban" id="kanban"></div>
-  </div>
+    <!-- ===== UPCOMING ===== -->
+    <section class="page" id="page-upcoming">
+      <h1 class="page-title">Upcoming &amp; pending</h1>
+      <p class="page-sub">What's scheduled ahead, and anything overdue.</p>
 
-  <!-- ===== Calendar/Health/Library + Timeline/Journal (packed columns) ===== -->
-  <div class="grid grid-top">
-    <div class="col-stack">
-      <div class="panel">
-        <div class="panel-head"><h2>Calendar</h2></div>
-        <div class="cal-wrap-compact">
-          <div class="cal-nav">
-            <button id="cal-prev">&larr;</button>
-            <span class="cal-title" id="cal-title">—</span>
-            <button id="cal-next">&rarr;</button>
+      <div class="block">
+        <div class="block-head"><h2>Upcoming</h2>
+          <span style="display:flex;align-items:center;gap:8px;">
+            <span class="count" id="upcoming-count"></span>
+            <button class="mini-btn clear-btn" data-clear="upcoming" title="Clear upcoming items">Clear</button>
+          </span>
+        </div>
+        <div id="upcoming-list"></div>
+      </div>
+
+      <div class="block">
+        <div class="block-head adv-toggle" id="adv-toggle">
+          <h2>Advanced entry</h2><span class="count">exact date, type, category &#9662;</span>
+        </div>
+        <div id="adv-form" class="adv-form">
+          <label>What is it</label>
+          <div class="type-select" id="type-select">
+            <div class="type-opt active" data-v="task">Task</div>
+            <div class="type-opt" data-v="meeting">Meeting</div>
+            <div class="type-opt" data-v="reminder">Reminder</div>
           </div>
-          <div class="cal-grid" id="cal-grid"></div>
+          <label>Title</label>
+          <input type="text" id="f-title" placeholder="e.g. Send Q3 report">
+          <div class="row2">
+            <div><label>Date</label><input type="date" id="f-date"></div>
+            <div><label>Time</label><input type="time" id="f-time"></div>
+          </div>
+          <label>Category</label>
+          <div class="cat-select" id="cat-select">
+            <div class="pill active" data-cat="work">Work</div>
+            <div class="pill" data-cat="personal">Personal</div>
+          </div>
+          <button class="btn" id="add-btn">Add entry</button>
         </div>
       </div>
-      <div class="panel">
-        <div class="panel-head"><h2>Health</h2></div>
+    </section>
+
+    <!-- ===== PROJECTS ===== -->
+    <section class="page" id="page-projects">
+      <h1 class="page-title">Active projects</h1>
+      <p class="page-sub">Track what's moving, and what's stuck.</p>
+
+      <div class="block">
+        <div class="block-head"><h2>Board</h2><button class="mini-btn clear-btn" data-clear="projects" title="Clear all projects">Clear</button></div>
+        <div class="row3" style="margin-bottom:10px;">
+          <input type="text" id="f-project-title" placeholder="Project name">
+          <select id="f-project-cat"><option value="work">Work</option><option value="personal">Personal</option></select>
+          <button class="btn small" id="project-add-btn">Add project</button>
+        </div>
+        <div class="kanban" id="kanban"></div>
+      </div>
+    </section>
+
+    <!-- ===== CALENDAR ===== -->
+    <section class="page" id="page-calendar">
+      <h1 class="page-title">Calendar</h1>
+      <p class="page-sub">This week at a glance, the month, and the day's timeline.</p>
+
+      <div class="block">
+        <div class="block-head"><h2>This week</h2></div>
+        <div class="week-strip" id="week-strip"></div>
+      </div>
+
+      <div class="grid grid-top">
+        <div class="block">
+          <div class="block-head"><h2>Month</h2></div>
+          <div class="cal-wrap-compact">
+            <div class="cal-nav">
+              <button id="cal-prev">&larr;</button>
+              <span class="cal-title" id="cal-title">—</span>
+              <button id="cal-next">&rarr;</button>
+            </div>
+            <div class="cal-grid" id="cal-grid"></div>
+          </div>
+        </div>
+        <div class="block">
+          <div class="block-head"><h2>Timeline</h2><span class="count" id="active-date-label"></span></div>
+          <div class="spine-wrap"><div class="spine" id="spine"></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== TRENDS ===== -->
+    <section class="page" id="page-trends">
+      <h1 class="page-title">Trends</h1>
+      <p class="page-sub">Steps and calories, by day, month, quarter, or year.</p>
+
+      <div class="block">
+        <div class="block-head"><h2>Overview</h2><span class="count" id="trend-year-label"></span></div>
+        <div class="trend-controls">
+          <div class="trend-metric" id="trend-metric">
+            <div class="trend-metric-opt active" data-metric="steps">Steps</div>
+            <div class="trend-metric-opt" data-metric="calories">Calories</div>
+          </div>
+          <div class="trend-range" id="trend-range">
+            <div class="trend-range-opt active" data-range="daily">Daily</div>
+            <div class="trend-range-opt" data-range="monthly">Monthly split</div>
+            <div class="trend-range-opt" data-range="quarterly">Quarterly split</div>
+            <div class="trend-range-opt" data-range="annual">Annual split</div>
+          </div>
+          <div class="trend-year-nav" id="trend-year-nav">
+            <button id="trend-year-prev">&larr;</button>
+            <button id="trend-year-next">&rarr;</button>
+          </div>
+        </div>
+        <div class="trend-stat-row" id="trend-stat-row"></div>
+        <div class="trend-chart-wrap"><canvas id="trend-chart" height="90"></canvas></div>
+      </div>
+    </section>
+
+    <!-- ===== HEALTH ===== -->
+    <section class="page" id="page-health">
+      <h1 class="page-title">Health</h1>
+      <p class="page-sub">Steps, calories, and what you ate today.</p>
+
+      <div class="block">
+        <div class="block-head"><h2>Apple Health</h2><span class="count" id="applehealth-status">Not imported</span></div>
+        <p class="page-sub" style="margin-bottom:10px;">
+          Browsers can't read Apple Health live — Apple doesn't expose a web API for it.
+          To bring your data in: open the Health app &rarr; profile icon &rarr; <b>Export All Health Data</b>,
+          AirDrop/save the <code>export.xml</code> to this device, then import it below.
+          Steps and active-energy (calories burned) are pulled in per day; anything before or after can still be entered manually.
+        </p>
+        <div class="journal-attach-row">
+          <input type="file" id="applehealth-file-input" accept=".xml,text/xml,application/xml">
+          <button class="btn small" id="applehealth-import-btn">Import Apple Health export…</button>
+          <span class="muted" id="applehealth-hint">No file imported yet</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <div class="block-head"><h2>Today</h2>
+          <span style="display:flex;align-items:center;gap:8px;">
+            <span class="count" id="health-date-label"></span>
+            <button class="mini-btn clear-btn" data-clear="health" title="Clear steps, calories &amp; meals for this day">Clear</button>
+          </span>
+        </div>
         <div class="health-row" style="margin-bottom:10px;">
           <div class="health-metric">
             <div class="num" id="steps-val">0</div>
-            <div class="lbl">Steps today</div>
+            <div class="lbl">Steps</div>
             <input type="number" id="f-steps" placeholder="Log steps" style="margin-top:6px;">
           </div>
           <div class="health-metric">
+            <div class="num" id="calburn-val">0</div>
+            <div class="lbl">Calories burned</div>
+            <input type="number" id="f-calburn" placeholder="Log kcal burned" style="margin-top:6px;">
+          </div>
+          <div class="health-metric">
             <div class="num" id="cal-val">0</div>
-            <div class="lbl">Calories today</div>
+            <div class="lbl">Calories eaten</div>
           </div>
         </div>
         <label>Log food</label>
@@ -438,8 +590,20 @@
         <button class="btn small" id="meal-add-btn" style="width:100%;margin-top:6px;">Log</button>
         <div id="meal-list" style="margin-top:8px;"></div>
       </div>
-      <div class="panel">
-        <div class="panel-head"><h2>Library</h2><span class="count" id="library-count"></span></div>
+    </section>
+
+    <!-- ===== LIBRARY ===== -->
+    <section class="page" id="page-library">
+      <h1 class="page-title">Library</h1>
+      <p class="page-sub">Reading queue, links, and things to come back to.</p>
+
+      <div class="block">
+        <div class="block-head"><h2>Queue</h2>
+          <span style="display:flex;align-items:center;gap:8px;">
+            <span class="count" id="library-count"></span>
+            <button class="mini-btn clear-btn" data-clear="library" title="Clear the whole queue">Clear</button>
+          </span>
+        </div>
         <div class="row3" style="margin-bottom:8px;">
           <input type="text" id="f-lib-title" placeholder="Title">
           <select id="f-lib-cat"><option value="work">Work</option><option value="personal">Personal</option></select>
@@ -448,52 +612,61 @@
         <input type="url" id="f-lib-url" placeholder="Paste link (https://…)" style="margin-bottom:8px;">
         <div id="library-list"></div>
       </div>
-    </div>
-    <div class="col-stack">
-      <div class="panel">
-        <div class="panel-head"><h2>Timeline</h2><span class="count" id="active-date-label"></span></div>
-        <div class="spine-wrap"><div class="spine" id="spine"></div></div>
-      </div>
-      <div class="panel">
-        <div class="panel-head"><h2>Journal</h2><span class="count" id="journal-date"></span></div>
+    </section>
+
+    <!-- ===== JOURNAL ===== -->
+    <section class="page" id="page-journal">
+      <h1 class="page-title">Journal</h1>
+      <p class="page-sub">Write, or attach pages from your own digital journal.</p>
+
+      <div class="block">
+        <div class="block-head"><h2>Today's entry</h2>
+          <span style="display:flex;align-items:center;gap:8px;">
+            <span class="count" id="journal-date"></span>
+            <button class="mini-btn clear-btn" data-clear="journal" title="Clear this entry &amp; its attachments">Clear</button>
+          </span>
+        </div>
         <textarea id="journal-area" placeholder="What's on your mind today…"></textarea>
+
+        <div class="journal-attach-row">
+          <input type="file" id="journal-file-input" multiple accept="image/*,application/pdf,.doc,.docx,.txt,.md">
+          <button class="btn small" id="journal-file-btn">Attach file</button>
+          <span class="muted" id="journal-file-hint">Images, PDFs, or docs — stored on this device</span>
+        </div>
+        <div id="journal-file-list"></div>
+
         <div class="journal-history" id="journal-history"></div>
       </div>
-    </div>
-  </div>
+    </section>
 
-  <!-- ===== Trends ===== -->
-  <div class="panel">
-    <div class="panel-head"><h2>Trends</h2><span class="count" id="trend-year-label"></span></div>
-    <div class="trend-controls">
-      <div class="trend-metric" id="trend-metric">
-        <div class="trend-metric-opt active" data-metric="steps">Steps</div>
-        <div class="trend-metric-opt" data-metric="calories">Calories</div>
+    <!-- ===== SYNC & SETTINGS ===== -->
+    <section class="page" id="page-sync">
+      <h1 class="page-title">Sync &amp; settings</h1>
+      <p class="page-sub">Back your data up to Google Sheets across devices.</p>
+
+      <div class="block">
+        <div class="block-head"><h2>Google Sheets sync</h2><span class="count" id="sync-status-label">Not connected</span></div>
+        <div id="sync-signed-out">
+          <button class="btn small" id="gsheets-signin-btn">Sign in with Google</button>
+        </div>
+        <div id="sync-signed-in" style="display:none;">
+          <div class="row2" style="margin-bottom:8px;">
+            <button class="btn small" id="gsheets-sync-btn">Sync now (push)</button>
+            <button class="btn small" id="gsheets-pull-btn">Pull from sheet</button>
+          </div>
+          <label>Connect to an existing sheet (paste link — do this on a new device to load your data)</label>
+          <div class="row2">
+            <input type="text" id="gsheets-connect-input" placeholder="Paste Google Sheet link or ID">
+            <button class="btn small" id="gsheets-connect-btn">Connect</button>
+          </div>
+          <div class="footer-note" style="text-align:left;margin-top:8px;" id="gsheets-link-note"></div>
+        </div>
       </div>
-      <div class="trend-range" id="trend-range">
-        <div class="trend-range-opt active" data-range="daily">Daily</div>
-        <div class="trend-range-opt" data-range="monthly">Monthly split</div>
-        <div class="trend-range-opt" data-range="quarterly">Quarterly split</div>
-        <div class="trend-range-opt" data-range="annual">Annual split</div>
-      </div>
-      <div class="trend-year-nav" id="trend-year-nav">
-        <button id="trend-year-prev">&larr;</button>
-        <button id="trend-year-next">&rarr;</button>
-      </div>
-    </div>
-    <div class="trend-stat-row" id="trend-stat-row"></div>
-    <div class="trend-chart-wrap"><canvas id="trend-chart" height="90"></canvas></div>
-  </div>
+    </section>
 
-  <div class="footer-note">Palette — Chambray · Terracotta · Sandstone · Muslin · Clove. Everything above is saved to your browser as you go.
-    <span id="save-note" class="save-note"></span>
-  </div>
-
-</div>
-
+  </main>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.0/chart.umd.min.js"></script>
-<script src="https://accounts.google.com/gsi/client" async defer></script>
 <script>
 (function(){
 
@@ -501,7 +674,7 @@
   var data = {
     profile:{name:""},
     entries:[], topTasks:[], projects:[], library:[],
-    meals:{}, health:{}, journal:{},
+    meals:{}, health:{}, journal:{}, journalFiles:{},
     settings:{lat:null,lon:null,locLabel:"",manualWeather:false,tempOverride:null,condOverride:"",autoCarry:true}
   };
   var activeDate = todayStr();
@@ -545,125 +718,6 @@
       document.getElementById('save-note').textContent = " Saved to this device.";
     }catch(e){ document.getElementById('save-note').textContent = " Couldn't save."; }
   }
-
-  // ---------- google sheets sync ----------
-  var GOOGLE_CLIENT_ID = "484156423834-6l6boggn3e4ggpunjdefuvml4g1ec0rl.apps.googleusercontent.com";
-  var GOOGLE_SCOPES = "https://www.googleapis.com/auth/spreadsheets";
-  var gTokenClient = null;
-  var gAccessToken = null;
-  var gSpreadsheetId = localStorage.getItem("daybook-sheet-id") || null;
-
-  function gSheetUrl(){ return "https://docs.google.com/spreadsheets/d/" + gSpreadsheetId + "/edit"; }
-  function gSetStatus(msg, withLink){
-    var el = document.getElementById('sync-status');
-    if(withLink && gSpreadsheetId){
-      el.innerHTML = msg + ' — <a href="'+gSheetUrl()+'" target="_blank" rel="noopener" style="color:var(--chambray);">Open</a>';
-    } else {
-      el.textContent = msg;
-    }
-  }
-  (function initSyncStatus(){
-    if(gSpreadsheetId){ gSetStatus("Last synced here", true); }
-  })();
-
-  function gInitTokenClient(){
-    if(typeof google === 'undefined' || !google.accounts){ return null; }
-    if(gTokenClient) return gTokenClient;
-    gTokenClient = google.accounts.oauth2.initTokenClient({
-      client_id: GOOGLE_CLIENT_ID,
-      scope: GOOGLE_SCOPES,
-      callback: ''
-    });
-    return gTokenClient;
-  }
-  function gRequestToken(callback){
-    var client = gInitTokenClient();
-    if(!client){ gSetStatus("Google sign-in still loading — try again"); return; }
-    client.callback = function(resp){
-      if(resp.error){ gSetStatus("Sign-in cancelled or failed"); return; }
-      gAccessToken = resp.access_token;
-      callback();
-    };
-    client.requestAccessToken({ prompt: gAccessToken ? '' : 'consent' });
-  }
-  function gHeaders(){
-    return { "Authorization": "Bearer " + gAccessToken, "Content-Type": "application/json" };
-  }
-  async function gCreateSpreadsheet(){
-    var body = {
-      properties: { title: "Daybook Export" },
-      sheets: ["Entries","Top Priority Tasks","Projects","Library","Health","Meals","Journal"].map(function(name){
-        return { properties: { title: name } };
-      })
-    };
-    var res = await fetch("https://sheets.googleapis.com/v4/spreadsheets", {
-      method: "POST", headers: gHeaders(), body: JSON.stringify(body)
-    });
-    if(!res.ok) throw new Error("create failed: " + res.status);
-    var json = await res.json();
-    gSpreadsheetId = json.spreadsheetId;
-    localStorage.setItem("daybook-sheet-id", gSpreadsheetId);
-  }
-  function gBuildSheetRows(){
-    var rows = {};
-    rows["Entries"] = [["ID","Date","Time","Type","Title","Category","Done"]].concat(
-      data.entries.map(function(e){ return [e.id, e.date, e.time||"", e.type, e.title, e.category, e.done?"Yes":"No"]; })
-    );
-    rows["Top Priority Tasks"] = [["ID","Title","Category","Intensity","Progress","Done"]].concat(
-      data.topTasks.map(function(t){ return [t.id, t.title, t.category, t.intensity||"low", t.progress, t.done?"Yes":"No"]; })
-    );
-    rows["Projects"] = [["ID","Title","Category","Status","Progress"]].concat(
-      data.projects.map(function(p){ return [p.id, p.title, p.category, p.status, p.progress]; })
-    );
-    rows["Library"] = [["ID","Title","Category","URL","Done"]].concat(
-      data.library.map(function(l){ return [l.id, l.title, l.category, l.url||"", l.done?"Yes":"No"]; })
-    );
-    rows["Health"] = [["Date","Steps"]].concat(
-      Object.keys(data.health).sort().map(function(d){ return [d, (data.health[d]&&data.health[d].steps)||0]; })
-    );
-    var mealRows = [];
-    Object.keys(data.meals).sort().forEach(function(d){
-      (data.meals[d]||[]).forEach(function(m){ mealRows.push([d, m.name, m.calories]); });
-    });
-    rows["Meals"] = [["Date","Food","Calories"]].concat(mealRows);
-    rows["Journal"] = [["Date","Entry"]].concat(
-      Object.keys(data.journal).filter(function(d){ return data.journal[d] && data.journal[d].trim(); }).sort()
-        .map(function(d){ return [d, data.journal[d]]; })
-    );
-    return rows;
-  }
-  async function gWriteSheets(){
-    var rows = gBuildSheetRows();
-    var payload = Object.keys(rows).map(function(name){ return { range: "'"+name+"'!A1", values: rows[name] }; });
-    var res = await fetch("https://sheets.googleapis.com/v4/spreadsheets/" + gSpreadsheetId + "/values:batchUpdate", {
-      method: "POST", headers: gHeaders(),
-      body: JSON.stringify({ valueInputOption: "RAW", data: payload })
-    });
-    if(!res.ok) throw new Error("write failed: " + res.status);
-  }
-  function gSyncNow(){
-    gSetStatus("Signing in…");
-    gRequestToken(async function(){
-      try{
-        gSetStatus("Syncing…");
-        if(!gSpreadsheetId){ await gCreateSpreadsheet(); }
-        await gWriteSheets();
-        var now = new Date();
-        gSetStatus("Synced " + pad(now.getHours()) + ":" + pad(now.getMinutes()), true);
-      }catch(e){
-        if(gSpreadsheetId){
-          try{
-            gSpreadsheetId = null; localStorage.removeItem("daybook-sheet-id");
-            await gCreateSpreadsheet(); await gWriteSheets();
-            gSetStatus("Synced (new sheet)", true);
-            return;
-          }catch(e2){}
-        }
-        gSetStatus("Sync failed — try again");
-      }
-    });
-  }
-  document.getElementById('sync-drive-btn').addEventListener('click', gSyncNow);
 
   // ---------- google sheets sync ----------
   var GOOGLE_CLIENT_ID = "484156423834-6l6boggn3e4ggpunjdefuvml4g1ec0rl.apps.googleusercontent.com";
@@ -746,8 +800,8 @@
     out.Library = [["id","date","title","category","url","done"]].concat(
       data.library.map(function(l){ return [l.id,l.date,l.title,l.category,l.url||"",boolStr(l.done)]; })
     );
-    out.Health = [["date","steps"]].concat(
-      Object.keys(data.health).map(function(d){ return [d, data.health[d].steps||0]; })
+    out.Health = [["date","steps","caloriesBurned"]].concat(
+      Object.keys(data.health).map(function(d){ return [d, data.health[d].steps||0, data.health[d].caloriesBurned||0]; })
     );
     out.Meals = [["date","id","name","calories"]];
     Object.keys(data.meals).forEach(function(d){
@@ -801,7 +855,7 @@
     });
     rows = (rowsByTab.Health||[]).slice(1);
     data.health = {};
-    rows.forEach(function(r){ data.health[r[0]] = { steps: parseInt(r[1],10)||0 }; });
+    rows.forEach(function(r){ data.health[r[0]] = { steps: parseInt(r[1],10)||0, caloriesBurned: parseInt(r[2],10)||0 }; });
     rows = (rowsByTab.Meals||[]).slice(1);
     data.meals = {};
     rows.forEach(function(r){
@@ -1281,6 +1335,12 @@
     data.health[activeDate].steps = v;
     scheduleSave(); renderHealth(); renderTrends();
   });
+  document.getElementById('f-calburn').addEventListener('change', function(e){
+    var v = parseInt(e.target.value,10) || 0;
+    data.health[activeDate] = data.health[activeDate] || {};
+    data.health[activeDate].caloriesBurned = v;
+    scheduleSave(); renderHealth(); renderTrends();
+  });
   document.getElementById('meal-add-btn').addEventListener('click', function(){
     var n = document.getElementById('f-meal-name').value.trim();
     var c = parseInt(document.getElementById('f-meal-cal').value,10);
@@ -1291,9 +1351,13 @@
     scheduleSave(); renderHealth(); renderTrends();
   });
   function renderHealth(){
+    document.getElementById('health-date-label').textContent = friendlyDate(activeDate);
     var steps = (data.health[activeDate] && data.health[activeDate].steps) || 0;
     document.getElementById('steps-val').textContent = steps;
     document.getElementById('f-steps').value = steps || "";
+    var calBurn = (data.health[activeDate] && data.health[activeDate].caloriesBurned) || 0;
+    document.getElementById('calburn-val').textContent = calBurn;
+    document.getElementById('f-calburn').value = calBurn || "";
     var meals = data.meals[activeDate] || [];
     var totalCal = meals.reduce(function(s,m){return s+m.calories;},0);
     document.getElementById('cal-val').textContent = totalCal;
@@ -1309,6 +1373,70 @@
     });
   }
 
+  // ---------- apple health import ----------
+  // Apple gives no web API for live Health access \u2014 the supported path is exporting
+  // the on-device Health data (Health app > profile > Export All Health Data) and
+  // importing that export.xml here. We stream-match records instead of building a
+  // full DOM, since exports can run into the hundreds of MB.
+  document.getElementById('applehealth-import-btn').addEventListener('click', function(){
+    document.getElementById('applehealth-file-input').click();
+  });
+  document.getElementById('applehealth-file-input').addEventListener('change', function(e){
+    var file = e.target.files && e.target.files[0];
+    if(!file) return;
+    var hint = document.getElementById('applehealth-hint');
+    hint.textContent = "Reading " + file.name + "\u2026";
+    var reader = new FileReader();
+    reader.onload = function(ev){
+      try{
+        var stepsByDay = {}, kcalByDay = {};
+        var recRe = /<Record\b[^>]*>/g;
+        var text = ev.target.result;
+        var m;
+        while((m = recRe.exec(text))){
+          var tag = m[0];
+          var typeM = tag.match(/type="([^"]*)"/);
+          if(!typeM) continue;
+          var type = typeM[1];
+          var isSteps = type === 'HKQuantityTypeIdentifierStepCount';
+          var isActive = type === 'HKQuantityTypeIdentifierActiveEnergyBurned';
+          if(!isSteps && !isActive) continue;
+          var valM = tag.match(/value="([^"]*)"/);
+          var dateM = tag.match(/startDate="(\d{4}-\d{2}-\d{2})/);
+          if(!valM || !dateM) continue;
+          var val = parseFloat(valM[1]);
+          if(isNaN(val)) continue;
+          var day = dateM[1];
+          if(isSteps){ stepsByDay[day] = (stepsByDay[day]||0) + val; }
+          else { kcalByDay[day] = (kcalByDay[day]||0) + val; }
+        }
+        var days = {};
+        Object.keys(stepsByDay).forEach(function(d){ days[d]=true; });
+        Object.keys(kcalByDay).forEach(function(d){ days[d]=true; });
+        var dayCount = Object.keys(days).length;
+        if(dayCount===0){
+          hint.textContent = "No step/active-energy records found in that file.";
+          return;
+        }
+        Object.keys(days).forEach(function(d){
+          data.health[d] = data.health[d] || {};
+          if(stepsByDay[d]!==undefined) data.health[d].steps = Math.round(stepsByDay[d]);
+          if(kcalByDay[d]!==undefined) data.health[d].caloriesBurned = Math.round(kcalByDay[d]);
+        });
+        scheduleSave(); renderHealth(); renderTrends();
+        var now = new Date();
+        document.getElementById('applehealth-status').textContent = "Imported " + pad(now.getHours())+":"+pad(now.getMinutes());
+        hint.textContent = "Imported " + dayCount + " day(s) of steps & active energy from " + file.name;
+      }catch(err){
+        console.error(err);
+        hint.textContent = "Couldn't read that file \u2014 make sure it's the Health app's export.xml";
+      }
+    };
+    reader.onerror = function(){ hint.textContent = "Couldn't read that file."; };
+    reader.readAsText(file);
+    e.target.value = "";
+  });
+
   // ---------- library ----------
   document.getElementById('lib-add-btn').addEventListener('click', function(){
     var t = document.getElementById('f-lib-title').value.trim(); if(!t) return;
@@ -1317,27 +1445,40 @@
     data.library.push({id:uid(),date:activeDate,title:t,category:cat,url:url,done:false});
     document.getElementById('f-lib-title').value = "";
     document.getElementById('f-lib-url').value = "";
-    scheduleSave(); renderLibrary();
+    scheduleSave(); renderLibrary(); renderTodayLibrary();
   });
+  function libraryRow(item, opts){
+    opts = opts || {};
+    var row = document.createElement('div'); row.className='lib-item'+(item.done?' done':'');
+    var hasUrl = !!(item.url && item.url.trim());
+    row.innerHTML =
+      '<input type="checkbox" '+(item.done?'checked':'')+' class="lib-done">' +
+      (opts.readonlyTitle
+        ? '<span style="flex:1;font-size:13px;'+(item.done?'text-decoration:line-through;color:var(--clove-faint);':'')+'">'+escapeHtml(item.title)+'</span>'
+        : '<input type="text" value="'+escapeHtml(item.title)+'">') +
+      '<span class="cat-tag '+(item.category||'work')+'">'+(item.category||'work')+'</span>' +
+      '<a class="lib-link'+(hasUrl?'':' disabled')+'" href="'+(hasUrl?escapeHtml(item.url):'#')+'" target="_blank" rel="noopener noreferrer" title="'+(hasUrl?'Open link':'No link added')+'">\uD83D\uDD17</a>' +
+      (opts.hideDelete ? '' : '<button class="mini-btn lib-del">\u2715</button>');
+    row.querySelector('.lib-done').addEventListener('change', function(ev){ item.done=ev.target.checked; scheduleSave(); renderLibrary(); renderTodayLibrary(); });
+    var titleInput = row.querySelector('input[type=text]');
+    if(titleInput){ titleInput.addEventListener('input', function(ev){ item.title=ev.target.value; scheduleSave(); renderTodayLibrary(); }); }
+    var delBtn = row.querySelector('.lib-del');
+    if(delBtn){ delBtn.addEventListener('click', function(){ data.library=data.library.filter(function(x){return x.id!==item.id;}); scheduleSave(); renderLibrary(); renderTodayLibrary(); }); }
+    return row;
+  }
   function renderLibrary(){
     var list = data.library.slice().sort(function(a,b){ return a.done - b.done; });
     document.getElementById('library-count').textContent = list.length;
     var wrap = document.getElementById('library-list'); wrap.innerHTML = "";
     if(list.length===0){ wrap.innerHTML='<div class="empty-hint">Nothing queued yet.</div>'; return; }
-    list.forEach(function(item){
-      var row = document.createElement('div'); row.className='lib-item'+(item.done?' done':'');
-      var hasUrl = !!(item.url && item.url.trim());
-      row.innerHTML =
-        '<input type="checkbox" '+(item.done?'checked':'')+' class="lib-done">' +
-        '<input type="text" value="'+escapeHtml(item.title)+'">' +
-        '<span class="cat-tag '+(item.category||'work')+'">'+(item.category||'work')+'</span>' +
-        '<a class="lib-link'+(hasUrl?'':' disabled')+'" href="'+(hasUrl?escapeHtml(item.url):'#')+'" target="_blank" rel="noopener noreferrer" title="'+(hasUrl?'Open link':'No link added')+'">\uD83D\uDD17</a>' +
-        '<button class="mini-btn lib-del">\u2715</button>';
-      row.querySelector('.lib-done').addEventListener('change', function(ev){ item.done=ev.target.checked; scheduleSave(); renderLibrary(); });
-      row.querySelector('input[type=text]').addEventListener('input', function(ev){ item.title=ev.target.value; scheduleSave(); });
-      row.querySelector('.lib-del').addEventListener('click', function(){ data.library=data.library.filter(function(x){return x.id!==item.id;}); scheduleSave(); renderLibrary(); });
-      wrap.appendChild(row);
-    });
+    list.forEach(function(item){ wrap.appendChild(libraryRow(item)); });
+  }
+  function renderTodayLibrary(){
+    var list = data.library.filter(function(item){ return !item.done; });
+    document.getElementById('today-library-count').textContent = list.length;
+    var wrap = document.getElementById('today-library-list'); wrap.innerHTML = "";
+    if(list.length===0){ wrap.innerHTML='<div class="empty-hint">Nothing queued — add items in Library.</div>'; return; }
+    list.forEach(function(item){ wrap.appendChild(libraryRow(item, {readonlyTitle:true, hideDelete:true})); });
   }
 
   // ---------- journal ----------
@@ -1358,6 +1499,119 @@
       el.addEventListener('click', function(){ activeDate=d; renderAll(); });
       wrap.appendChild(el);
     });
+  }
+
+  // ---------- journal file attachments (IndexedDB) ----------
+  var jfileDB = null;
+  function openJfileDB(){
+    return new Promise(function(resolve, reject){
+      if(jfileDB){ resolve(jfileDB); return; }
+      var req = indexedDB.open("daybook-files", 1);
+      req.onupgradeneeded = function(e){
+        var db = e.target.result;
+        if(!db.objectStoreNames.contains("files")){ db.createObjectStore("files", { keyPath: "id" }); }
+      };
+      req.onsuccess = function(e){ jfileDB = e.target.result; resolve(jfileDB); };
+      req.onerror = function(e){ reject(e); };
+    });
+  }
+  function jfileSave(id, blob){
+    return openJfileDB().then(function(db){
+      return new Promise(function(resolve, reject){
+        var tx = db.transaction("files", "readwrite");
+        tx.objectStore("files").put({ id:id, blob:blob });
+        tx.oncomplete = function(){ resolve(); };
+        tx.onerror = function(e){ reject(e); };
+      });
+    });
+  }
+  function jfileGet(id){
+    return openJfileDB().then(function(db){
+      return new Promise(function(resolve, reject){
+        var tx = db.transaction("files", "readonly");
+        var req = tx.objectStore("files").get(id);
+        req.onsuccess = function(){ resolve(req.result ? req.result.blob : null); };
+        req.onerror = function(e){ reject(e); };
+      });
+    });
+  }
+  function jfileDelete(id){
+    return openJfileDB().then(function(db){
+      return new Promise(function(resolve, reject){
+        var tx = db.transaction("files", "readwrite");
+        tx.objectStore("files").delete(id);
+        tx.oncomplete = function(){ resolve(); };
+        tx.onerror = function(e){ reject(e); };
+      });
+    });
+  }
+  function humanSize(bytes){
+    if(bytes < 1024) return bytes + " B";
+    if(bytes < 1024*1024) return Math.round(bytes/1024) + " KB";
+    return (bytes/1024/1024).toFixed(1) + " MB";
+  }
+  document.getElementById('journal-file-btn').addEventListener('click', function(){
+    document.getElementById('journal-file-input').click();
+  });
+  document.getElementById('journal-file-input').addEventListener('change', function(e){
+    var files = Array.prototype.slice.call(e.target.files || []);
+    if(!files.length) return;
+    data.journalFiles = data.journalFiles || {};
+    data.journalFiles[activeDate] = data.journalFiles[activeDate] || [];
+    var hint = document.getElementById('journal-file-hint');
+    hint.textContent = "Saving…";
+    Promise.all(files.map(function(file){
+      var id = uid();
+      return jfileSave(id, file).then(function(){
+        data.journalFiles[activeDate].push({ id:id, name:file.name, type:file.type, size:file.size });
+      });
+    })).then(function(){
+      hint.textContent = "Images, PDFs, or docs — stored on this device";
+      e.target.value = "";
+      scheduleSave(); renderJournalFiles();
+    });
+  });
+  function renderJournalFiles(){
+    var wrap = document.getElementById('journal-file-list'); wrap.innerHTML = "";
+    var list = (data.journalFiles && data.journalFiles[activeDate]) || [];
+    if(!list.length) return;
+    var box = document.createElement('div'); box.className = 'jfile-list';
+    list.forEach(function(f){
+      var row = document.createElement('div'); row.className = 'jfile-item';
+      var isImg = f.type && f.type.indexOf('image/') === 0;
+      var thumbHtml = isImg
+        ? '<img class="jfile-thumb" data-id="'+f.id+'" alt="">'
+        : '<span class="jfile-icon">'+(f.type==='application/pdf' ? '\uD83D\uDCC4' : '\uD83D\uDCCE')+'</span>';
+      row.innerHTML = thumbHtml +
+        '<div class="jfile-meta"><div class="jfile-name">'+escapeHtml(f.name)+'</div>' +
+        '<div class="jfile-sub">'+humanSize(f.size||0)+'</div></div>' +
+        '<div class="jfile-actions">' +
+        '<button class="mini-btn jf-open" title="Open">\u2197</button>' +
+        '<button class="mini-btn jf-del" title="Delete">\u2715</button></div>';
+      row.querySelector('.jf-open').addEventListener('click', function(){
+        jfileGet(f.id).then(function(blob){
+          if(!blob) return;
+          var url = URL.createObjectURL(blob);
+          window.open(url, '_blank');
+        });
+      });
+      row.querySelector('.jf-del').addEventListener('click', function(){
+        jfileDelete(f.id).then(function(){
+          data.journalFiles[activeDate] = data.journalFiles[activeDate].filter(function(x){ return x.id!==f.id; });
+          scheduleSave(); renderJournalFiles();
+        });
+      });
+      box.appendChild(row);
+      if(isImg){
+        jfileGet(f.id).then(function(blob){
+          if(!blob) return;
+          var url = URL.createObjectURL(blob);
+          var imgEl = row.querySelector('.jfile-thumb');
+          if(imgEl) imgEl.src = url;
+        });
+      }
+    });
+    wrap.appendChild(box);
   }
 
   // ---------- week strip ----------
@@ -1567,10 +1821,75 @@
     renderSpine();
     renderHealth();
     renderLibrary();
+    renderTodayLibrary();
     renderJournalHistory();
+    renderJournalFiles();
     renderWeek();
     renderTrends();
   }
+
+  // ---------- sidebar page navigation ----------
+  function goToPage(target){
+    document.querySelectorAll('.nav-item').forEach(function(b){ b.classList.remove('active'); });
+    document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('active'); });
+    var navBtn = document.querySelector('.nav-item[data-page="'+target+'"]');
+    if(navBtn) navBtn.classList.add('active');
+    document.getElementById('page-'+target).classList.add('active');
+    if(target === 'trends' && typeof renderTrends === 'function') renderTrends();
+    window.scrollTo(0,0);
+  }
+  document.querySelectorAll('.nav-item').forEach(function(btn){
+    btn.addEventListener('click', function(){ goToPage(btn.getAttribute('data-page')); });
+  });
+  document.getElementById('today-open-library-btn').addEventListener('click', function(){ goToPage('library'); });
+
+  // ---------- clear section (with confirmation) ----------
+  var CLEAR_ACTIONS = {
+    today: {
+      label: "clear today's list",
+      run: function(){ data.entries = data.entries.filter(function(e){ return e.date !== activeDate; }); }
+    },
+    upcoming: {
+      label: "clear all upcoming items",
+      run: function(){ var today = todayStr(); data.entries = data.entries.filter(function(e){ return !(e.date > today); }); }
+    },
+    toptasks: {
+      label: "clear all priority tasks",
+      run: function(){ data.topTasks = []; }
+    },
+    projects: {
+      label: "clear the entire project board",
+      run: function(){ data.projects = []; }
+    },
+    health: {
+      label: "clear steps, calories & logged meals for " + "this day",
+      run: function(){ delete data.health[activeDate]; delete data.meals[activeDate]; }
+    },
+    library: {
+      label: "clear the whole library queue",
+      run: function(){ data.library = []; }
+    },
+    journal: {
+      label: "clear today's journal entry & attachments",
+      run: function(){
+        delete data.journal[activeDate];
+        var files = (data.journalFiles && data.journalFiles[activeDate]) || [];
+        files.forEach(function(f){ jfileDelete(f.id); });
+        if(data.journalFiles) delete data.journalFiles[activeDate];
+      }
+    }
+  };
+  document.querySelectorAll('.clear-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var key = btn.getAttribute('data-clear');
+      var action = CLEAR_ACTIONS[key];
+      if(!action) return;
+      var ok = window.confirm("Are you sure you want to " + action.label + "? This can't be undone.");
+      if(!ok) return;
+      action.run();
+      scheduleSave(); renderAll();
+    });
+  });
 
   async function init(){
     await loadData();
