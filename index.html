@@ -706,10 +706,12 @@
       <div class="block">
         <div class="block-head"><h2>Queue</h2>
           <span style="display:flex;align-items:center;gap:8px;">
+            <span class="count" id="library-date-label"></span>
             <span class="count" id="library-count"></span>
-            <button class="mini-btn clear-btn" data-clear="library" title="Clear the whole queue">Clear</button>
+            <button class="mini-btn clear-btn" data-clear="library" title="Clear this day's queue">Clear</button>
           </span>
         </div>
+        <p class="page-sub" style="margin:0 0 10px;">Resets fresh every day — today's additions roll off tomorrow. Pick a date on the Calendar page to revisit an older queue.</p>
         <div class="row3" style="margin-bottom:8px;">
           <input type="text" id="f-lib-title" placeholder="Title">
           <select id="f-lib-cat"><option value="work">Work</option><option value="personal">Personal</option></select>
@@ -1630,14 +1632,20 @@
     return row;
   }
   function renderLibrary(){
-    var list = data.library.slice().sort(function(a,b){ return a.done - b.done; });
+    // Day-scoped on purpose: each day gets its own fresh queue (e.g. "today's
+    // podcast") instead of yesterday's items lingering forever. Older days are
+    // still in data.library and reappear if you navigate to that date via Calendar.
+    document.getElementById('library-date-label').textContent = friendlyDate(activeDate);
+    var list = data.library.filter(function(item){ return item.date===activeDate; })
+      .sort(function(a,b){ return a.done - b.done; });
     document.getElementById('library-count').textContent = list.length;
     var wrap = document.getElementById('library-list'); wrap.innerHTML = "";
-    if(list.length===0){ wrap.innerHTML='<div class="empty-hint">Nothing queued yet.</div>'; return; }
+    if(list.length===0){ wrap.innerHTML='<div class="empty-hint">Nothing queued for this day yet.</div>'; return; }
     list.forEach(function(item){ wrap.appendChild(libraryRow(item)); });
   }
   function renderTodayLibrary(){
-    var list = data.library.filter(function(item){ return !item.done; });
+    var today = todayStr();
+    var list = data.library.filter(function(item){ return item.date===today && !item.done; });
     document.getElementById('today-library-count').textContent = list.length;
     var wrap = document.getElementById('today-library-list'); wrap.innerHTML = "";
     if(list.length===0){ wrap.innerHTML='<div class="empty-hint">Nothing queued — add items in Library.</div>'; return; }
@@ -1971,9 +1979,17 @@
     var now = new Date();
     var hhmm = pad(now.getHours())+":"+pad(now.getMinutes());
     if(hhmm===checkedMinute) return;
-    if(hhmm==="00:00") carryForward();
+    var changed=false;
+    if(hhmm==="00:00"){
+      // A session left open across midnight should land on the new day by
+      // itself — fresh library queue, fresh health/journal view — same as a
+      // brand-new page load would, instead of still showing yesterday.
+      activeDate = todayStr();
+      carryForward();
+      changed = true;
+    }
     checkedMinute = hhmm;
-    var today = todayStr(); var changed=false;
+    var today = todayStr();
     data.entries.forEach(function(e){
       if(e.date!==today || e.done) return;
       if(!e.time) return;
@@ -2209,8 +2225,8 @@
       run: function(){ delete data.health[activeDate]; delete data.meals[activeDate]; }
     },
     library: {
-      label: "clear the whole library queue",
-      run: function(){ data.library = []; }
+      label: "clear the library queue for this day",
+      run: function(){ data.library = data.library.filter(function(item){ return item.date !== activeDate; }); }
     },
     journal: {
       label: "clear today's journal entry & attachments",
