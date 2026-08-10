@@ -95,14 +95,19 @@
   @media (max-width:768px){
     .app{flex-direction:column;}
     .sidebar{width:100%;flex:none;height:auto;position:sticky;top:0;z-index:10;
-      flex-direction:row;overflow-x:auto;padding:8px 8px;border-right:none;border-bottom:1px solid var(--line);
-      align-items:center;}
+      flex-direction:row;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:8px 8px;
+      border-right:none;border-bottom:1px solid var(--line);align-items:center;}
     .sidebar-title,.sidebar-name{display:none;}
-    .sidebar-footer{display:flex;flex:0 0 auto;margin:0 0 0 auto;padding:0;border-top:none;}
+    .sidebar-footer{display:flex;flex:0 0 auto;margin:0 0 0 8px;padding:0;border-top:none;}
     .sidebar-footer .save-note{display:none;}
-    .nav-group{flex-direction:row;gap:2px;}
-    .nav-item{white-space:nowrap;flex:0 0 auto;padding:8px 10px;}
+    .theme-toggle{margin-bottom:0;}
+    .nav-group{flex-direction:row;flex:0 0 auto;gap:2px;}
+    .nav-item{width:auto;white-space:nowrap;flex:0 0 auto;padding:8px 10px;}
     .content{padding:18px 16px 90px;max-width:100%;}
+    /* hint that the nav bar scrolls sideways — otherwise the later items
+       (Health, Trends, Library, Journal, Sync, theme toggle) just look missing */
+    .sidebar::after{content:"";position:absolute;top:0;right:0;bottom:0;width:22px;
+      background:linear-gradient(to right, transparent, var(--page-bg));pointer-events:none;}
   }
 
   /* ---------- header ---------- */
@@ -144,7 +149,7 @@
   .panel{background:var(--muslin);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:18px;}
   .panel-head{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:12px;}
   .block{background:var(--muslin);border:1px solid var(--line);border-radius:10px;padding:18px 20px;margin-bottom:16px;}
-  .block-head{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:14px;}
+  .block-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px 10px;border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:14px;}
   .quick-add-block{background:var(--chambray-soft);border-color:transparent;}
 
   /* ---------- mini topbar (persistent across pages) ---------- */
@@ -323,8 +328,8 @@
   .now-line::before{content:"";position:absolute;left:-4px;top:-4px;width:9px;height:9px;border-radius:50%;background:var(--terracotta);}
 
   /* ---------- health / meals ---------- */
-  .health-row{display:flex;gap:14px;}
-  .health-metric{flex:1;background:var(--muslin);border-radius:8px;padding:10px;text-align:center;}
+  .health-row{display:flex;flex-wrap:wrap;gap:14px;}
+  .health-metric{flex:1 1 130px;background:var(--muslin);border-radius:8px;padding:10px;text-align:center;}
   .health-metric .num{font-family:var(--font-mono);font-size:22px;font-weight:500;}
   .health-metric .lbl{font-size:10.5px;color:var(--clove-soft);text-transform:uppercase;}
   .meal-item{display:flex;justify-content:space-between;font-size:12.5px;padding:4px 0;border-bottom:1px solid var(--line);}
