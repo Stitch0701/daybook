@@ -91,6 +91,24 @@
   .page.active{display:block;}
   .page-title{font-family:var(--font-display);font-weight:700;font-size:26px;margin:0 0 4px;color:var(--clove);}
   .page-sub{font-size:13px;color:var(--clove-soft);margin:0 0 22px;}
+  .notice-note{font-size:11.5px;color:var(--terracotta);background:var(--terracotta-soft);border-radius:6px;
+    padding:8px 10px;margin:0 0 10px;line-height:1.5;}
+  .recur-row{display:flex;align-items:center;gap:10px;padding:6px 4px;border-bottom:1px solid var(--line);font-size:12.5px;}
+  .recur-row:last-child{border-bottom:none;}
+  .recur-row .recur-title{flex:1;font-weight:500;color:var(--clove);}
+  .recur-row .recur-meta{color:var(--clove-faint);font-size:11px;}
+  .sidebar-search{padding:0 10px 12px;position:relative;}
+  .sidebar-search input{width:100%;font-size:12.5px;border:1px solid var(--line);border-radius:6px;padding:6px 8px;
+    font-family:var(--font-body);background:var(--muslin);color:var(--clove);}
+  .search-results{display:none;position:absolute;top:34px;left:10px;right:10px;background:var(--muslin);border:1px solid var(--line);
+    border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.12);max-height:320px;overflow-y:auto;z-index:20;}
+  .search-results.show{display:block;}
+  .sr-item{padding:8px 10px;border-bottom:1px solid var(--line);cursor:pointer;font-size:12px;}
+  .sr-item:last-child{border-bottom:none;}
+  .sr-item:hover{background:var(--sandstone-soft);}
+  .sr-item .sr-title{font-weight:500;color:var(--clove);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .sr-item .sr-meta{color:var(--clove-faint);font-size:10.5px;}
+  .sr-empty{padding:10px;font-size:11.5px;color:var(--clove-faint);}
 
   @media (max-width:768px){
     .app{flex-direction:column;}
@@ -151,6 +169,27 @@
   .block{background:var(--muslin);border:1px solid var(--line);border-radius:10px;padding:18px 20px;margin-bottom:16px;}
   .block-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px 10px;border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:14px;}
   .quick-add-block{background:var(--chambray-soft);border-color:transparent;}
+  .quick-chip-edit{background:transparent;border-style:solid;}
+
+  /* ---------- calendar quick-event modal ---------- */
+  .modal-backdrop{display:none;position:fixed;inset:0;background:rgba(47,46,43,0.35);z-index:100;
+    align-items:center;justify-content:center;}
+  .modal-backdrop.show{display:flex;}
+  .modal-card{background:var(--muslin);border-radius:12px;padding:20px 22px;width:340px;max-width:90vw;
+    box-shadow:0 12px 40px rgba(0,0,0,0.18);}
+  .modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+  .modal-head h3{margin:0;font-family:var(--font-display);font-size:16px;color:var(--clove);}
+  .modal-existing{margin-top:14px;padding-top:12px;border-top:1px solid var(--line);max-height:160px;overflow-y:auto;}
+  .modal-existing .mx-row{display:flex;justify-content:space-between;align-items:center;font-size:12px;
+    padding:5px 0;color:var(--clove-soft);}
+  .preset-editor{margin-top:12px;padding-top:12px;border-top:1px dashed var(--line);}
+  .preset-row{display:flex;align-items:center;gap:8px;padding:6px 0;font-size:12px;}
+  .preset-row-label{font-weight:500;color:var(--clove);min-width:110px;}
+  .preset-row-meta{color:var(--clove-faint);flex:1;}
+  .preset-add-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center;}
+  .preset-add-row input[type=text]{flex:1;min-width:140px;}
+  .preset-add-row input[type=time]{width:100px;}
+  .preset-add-row select{width:auto;}
 
   /* ---------- mini topbar (persistent across pages) ---------- */
   .topbar-mini{display:flex;align-items:center;flex-wrap:wrap;gap:10px;font-size:12.5px;color:var(--clove-soft);
@@ -418,6 +457,10 @@
   <nav class="sidebar">
     <div class="sidebar-title">📓 Daybook</div>
     <div class="sidebar-name"><input type="text" id="f-name" placeholder="Your name"></div>
+    <div class="sidebar-search">
+      <input type="text" id="global-search" placeholder="Search…">
+      <div class="search-results" id="search-results"></div>
+    </div>
     <div class="nav-group">
       <button class="nav-item active" data-page="today"><span class="nav-icon">☀️</span>Today</button>
       <button class="nav-item" data-page="upcoming"><span class="nav-icon">📥</span>Upcoming</button>
@@ -472,6 +515,23 @@
           <button class="btn small" id="quick-add-btn">Add</button>
         </div>
         <div class="quick-chips" id="quick-chips"></div>
+        <div class="preset-editor" id="preset-editor" style="display:none;">
+          <div class="preset-editor-list" id="preset-editor-list"></div>
+          <div class="preset-add-row">
+            <input type="text" id="preset-title" placeholder="Preset title, e.g. Team sync">
+            <input type="time" id="preset-time">
+            <select id="preset-type">
+              <option value="task">Task</option>
+              <option value="meeting">Meeting</option>
+              <option value="reminder">Reminder</option>
+            </select>
+            <select id="preset-cat">
+              <option value="work">Work</option>
+              <option value="personal">Personal</option>
+            </select>
+            <button class="btn small" id="preset-add-btn">Add preset</button>
+          </div>
+        </div>
       </div>
 
       <div class="block">
@@ -574,6 +634,36 @@
           </div>
           <button class="btn" id="add-btn">Add entry</button>
         </div>
+      </div>
+
+      <div class="block">
+        <div class="block-head"><h2>Recurring</h2><span class="count" id="recurring-count"></span></div>
+        <p class="page-sub" style="margin-bottom:10px;">Set it once — it reappears on its own each day or week, no need to re-add it.</p>
+        <div class="row2" style="margin-bottom:8px;">
+          <input type="text" id="f-recur-title" placeholder="e.g. Team standup">
+          <input type="time" id="f-recur-time">
+        </div>
+        <div class="row3" style="margin-bottom:8px;">
+          <select id="f-recur-freq">
+            <option value="daily">Every day</option>
+            <option value="weekly">Every week</option>
+          </select>
+          <select id="f-recur-weekday">
+            <option value="1">Monday</option>
+            <option value="2">Tuesday</option>
+            <option value="3">Wednesday</option>
+            <option value="4">Thursday</option>
+            <option value="5">Friday</option>
+            <option value="6">Saturday</option>
+            <option value="0">Sunday</option>
+          </select>
+          <select id="f-recur-cat">
+            <option value="work">Work</option>
+            <option value="personal">Personal</option>
+          </select>
+        </div>
+        <button class="btn small" id="recur-add-btn" style="width:100%;margin-bottom:10px;">Add recurring</button>
+        <div id="recurring-list"></div>
       </div>
     </section>
 
@@ -711,8 +801,8 @@
       <div class="block">
         <div class="block-head"><h2>Queue</h2>
           <span style="display:flex;align-items:center;gap:8px;">
-            <span class="count" id="library-date-label"></span>
             <span class="count" id="library-count"></span>
+            <span class="count" id="library-date-label"></span>
             <button class="mini-btn clear-btn" data-clear="library" title="Clear this day's queue">Clear</button>
           </span>
         </div>
@@ -778,8 +868,19 @@
 
       <div class="block">
         <div class="block-head"><h2>Notifications</h2><span class="count" id="notif-status-label">Not enabled</span></div>
-        <p class="page-sub" style="margin-bottom:10px;">Pop-out alerts for alarms and for tasks/meetings 5 minutes before they're due. Your browser will ask for permission once.</p>
+        <p class="page-sub" style="margin-bottom:6px;">Pop-out alerts for alarms and for tasks/meetings 5 minutes before they're due. Your browser will ask for permission once.</p>
+        <p class="notice-note">⚠️ These only fire while this tab or installed app is open in the background — closing it or locking your phone for a while means you'll miss the alert. This isn't a true push notification yet.</p>
         <button class="btn small" id="notif-enable-btn">Enable notifications</button>
+      </div>
+
+      <div class="block">
+        <div class="block-head"><h2>Full backup</h2><span class="count" id="backup-status-label"></span></div>
+        <p class="page-sub" style="margin-bottom:10px;">Everything you've logged, as one file — independent of Google Sheets, in case you switch devices or clear your browser. Journal file attachments are included too.</p>
+        <div class="row2">
+          <button class="btn small" id="backup-download-btn">Download backup (.json)</button>
+          <button class="btn small" id="backup-restore-btn">Restore from backup…</button>
+        </div>
+        <input type="file" id="backup-file-input" accept="application/json" style="display:none;">
       </div>
 
       <div class="block">
@@ -793,6 +894,33 @@
     </section>
 
   </main>
+
+  <div class="modal-backdrop" id="cal-modal-backdrop">
+    <div class="modal-card">
+      <div class="modal-head"><h3 id="cal-modal-date">—</h3><button class="mini-btn" id="cal-modal-close">\u2715</button></div>
+      <label>Title</label>
+      <input type="text" id="cal-modal-title" placeholder="e.g. Team sync">
+      <div class="row2">
+        <div><label>Time</label><input type="time" id="cal-modal-time"></div>
+        <div><label>Type</label>
+          <select id="cal-modal-type">
+            <option value="task">Task</option>
+            <option value="meeting">Meeting</option>
+            <option value="reminder">Reminder</option>
+          </select>
+        </div>
+      </div>
+      <label>Category</label>
+      <div class="cat-select" id="cal-modal-cat">
+        <div class="pill active" data-cat="work">Work</div>
+        <div class="pill" data-cat="personal">Personal</div>
+      </div>
+      <button class="btn" id="cal-modal-save">Add to this day</button>
+      <div class="modal-existing" id="cal-modal-existing"></div>
+    </div>
+  </div>
+
+</div>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.0/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -802,7 +930,14 @@
   var STORAGE_KEY = "daybook-data";
   var data = {
     profile:{name:""},
-    entries:[], topTasks:[], projects:[], library:[], alarms:[],
+    entries:[], topTasks:[], projects:[], library:[], alarms:[], recurring:[],
+    quickPresets:[
+      {label:"+ Standup", title:"Standup", time:"09:30", type:"meeting", category:"work"},
+      {label:"+ Deep work", title:"Deep work block", time:"10:30", type:"task", category:"work"},
+      {label:"+ Lunch break", title:"Lunch break", time:"13:00", type:"reminder", category:"personal"},
+      {label:"+ Workout", title:"Workout", time:"06:30", type:"task", category:"personal"},
+      {label:"+ Inbox zero", title:"Inbox zero", time:"17:30", type:"task", category:"work"}
+    ],
     meals:{}, health:{}, journal:{}, journalFiles:{},
     settings:{lat:null,lon:null,locLabel:"",manualWeather:false,tempOverride:null,condOverride:"",autoCarry:true,themeMode:"auto"}
   };
@@ -1219,23 +1354,60 @@
   document.getElementById('quick-add-input').addEventListener('keydown', function(ev){
     if(ev.key==='Enter'){ document.getElementById('quick-add-btn').click(); }
   });
-  var QUICK_PRESETS = [
+  var DEFAULT_QUICK_PRESETS = [
     {label:"+ Standup", title:"Standup", time:"09:30", type:"meeting", category:"work"},
     {label:"+ Deep work", title:"Deep work block", time:"10:30", type:"task", category:"work"},
     {label:"+ Lunch break", title:"Lunch break", time:"13:00", type:"reminder", category:"personal"},
     {label:"+ Workout", title:"Workout", time:"06:30", type:"task", category:"personal"},
     {label:"+ Inbox zero", title:"Inbox zero", time:"17:30", type:"task", category:"work"}
   ];
-  (function renderQuickChips(){
+  var presetEditorOpen = false;
+  function renderQuickChips(){
     var wrap = document.getElementById('quick-chips');
     wrap.innerHTML = "";
-    QUICK_PRESETS.forEach(function(p){
+    (data.quickPresets||[]).forEach(function(p){
       var chip = document.createElement('span');
       chip.className = 'quick-chip'; chip.textContent = p.label;
       chip.addEventListener('click', function(){ quickAddSubmit(p.title, p.time, p.type, p.category); });
       wrap.appendChild(chip);
     });
-  })();
+    var editBtn = document.createElement('span');
+    editBtn.className = 'quick-chip quick-chip-edit';
+    editBtn.textContent = presetEditorOpen ? 'Done' : '\u2699 Customize';
+    editBtn.addEventListener('click', function(){ presetEditorOpen = !presetEditorOpen; renderQuickChips(); });
+    wrap.appendChild(editBtn);
+    var editorEl = document.getElementById('preset-editor');
+    if(editorEl) editorEl.style.display = presetEditorOpen ? 'block' : 'none';
+    if(presetEditorOpen) renderPresetEditor();
+  }
+  function renderPresetEditor(){
+    var wrap = document.getElementById('preset-editor-list');
+    if(!wrap) return;
+    wrap.innerHTML = "";
+    (data.quickPresets||[]).forEach(function(p, idx){
+      var row = document.createElement('div'); row.className = 'preset-row';
+      row.innerHTML = '<span class="preset-row-label">'+escapeHtml(p.label)+'</span>' +
+        '<span class="preset-row-meta">'+(p.time||'no time')+' · '+p.type+' · '+p.category+'</span>' +
+        '<button class="mini-btn preset-del">\u2715</button>';
+      row.querySelector('.preset-del').addEventListener('click', function(){
+        data.quickPresets.splice(idx,1); scheduleSave(); renderQuickChips();
+      });
+      wrap.appendChild(row);
+    });
+  }
+  renderQuickChips();
+  document.getElementById('preset-add-btn').addEventListener('click', function(){
+    var title = document.getElementById('preset-title').value.trim();
+    if(!title) return;
+    var time = document.getElementById('preset-time').value || null;
+    var type = document.getElementById('preset-type').value;
+    var cat = document.getElementById('preset-cat').value;
+    data.quickPresets = data.quickPresets || [];
+    data.quickPresets.push({ label: "+ " + title, title: title, time: time, type: type, category: cat });
+    document.getElementById('preset-title').value = "";
+    document.getElementById('preset-time').value = "";
+    scheduleSave(); renderQuickChips();
+  });
 
   // ---------- entries helpers ----------
   function entriesForDate(d){
@@ -1469,10 +1641,57 @@
       var hasWork = list.some(function(e){return e.category==='work';});
       var hasPersonal = list.some(function(e){return e.category==='personal';});
       cell.innerHTML = day + (hasWork||hasPersonal ? '<div class="cal-dots">'+(hasWork?'<span class="cal-dot work"></span>':'')+(hasPersonal?'<span class="cal-dot personal"></span>':'')+'</div>' : '');
-      cell.addEventListener('click', function(dstrClosure){ return function(){ activeDate=dstrClosure; renderAll(); }; }(dstr));
+      cell.addEventListener('click', function(dstrClosure){ return function(){ openCalModal(dstrClosure); }; }(dstr));
       grid.appendChild(cell);
     }
   }
+
+  // ---------- calendar quick-event modal ----------
+  var calModalDate = null;
+  var calModalCat = "work";
+  function openCalModal(dstr){
+    calModalDate = dstr;
+    activeDate = dstr;
+    document.getElementById('cal-modal-date').textContent = friendlyDate(dstr);
+    document.getElementById('cal-modal-title').value = "";
+    document.getElementById('cal-modal-time').value = "";
+    document.getElementById('cal-modal-type').value = "task";
+    calModalCat = "work";
+    document.querySelectorAll('#cal-modal-cat .pill').forEach(function(p){ p.classList.toggle('active', p.getAttribute('data-cat')==='work'); });
+    var existing = entriesForDate(dstr);
+    var exWrap = document.getElementById('cal-modal-existing');
+    exWrap.innerHTML = existing.length ? "" : '<div class="empty-hint">Nothing on this day yet.</div>';
+    existing.forEach(function(e){
+      var row = document.createElement('div'); row.className = 'mx-row';
+      row.innerHTML = '<span>'+(e.time?e.time+' — ':'')+escapeHtml(e.title)+'</span>';
+      exWrap.appendChild(row);
+    });
+    document.getElementById('cal-modal-backdrop').classList.add('show');
+  }
+  function closeCalModal(){
+    document.getElementById('cal-modal-backdrop').classList.remove('show');
+    renderCal(); renderAll();
+  }
+  document.getElementById('cal-modal-close').addEventListener('click', closeCalModal);
+  document.getElementById('cal-modal-backdrop').addEventListener('click', function(e){
+    if(e.target.id === 'cal-modal-backdrop') closeCalModal();
+  });
+  document.querySelectorAll('#cal-modal-cat .pill').forEach(function(el){
+    el.addEventListener('click', function(){
+      document.querySelectorAll('#cal-modal-cat .pill').forEach(function(p){ p.classList.remove('active'); });
+      el.classList.add('active'); calModalCat = el.getAttribute('data-cat');
+    });
+  });
+  document.getElementById('cal-modal-save').addEventListener('click', function(){
+    var title = document.getElementById('cal-modal-title').value.trim();
+    if(!title){ flash(document.getElementById('cal-modal-title')); return; }
+    var time = document.getElementById('cal-modal-time').value || null;
+    var type = document.getElementById('cal-modal-type').value;
+    data.entries.push({id:uid(),date:calModalDate,time:time,type:type,title:title,category:calModalCat,done:false,carried:false,originalDate:null,noCarry:false});
+    scheduleSave();
+    closeCalModal();
+    showToast("Added to " + friendlyDate(calModalDate), "success");
+  });
 
   // ---------- timeline ----------
   function renderSpine(){
@@ -1927,7 +2146,63 @@
         e.date = today; e.carried = true; changed=true;
       }
     });
+    if(spawnRecurring(today)) changed = true;
     if(changed) scheduleSave();
+  }
+
+  // ---------- recurring tasks ----------
+  function spawnRecurring(today){
+    var changed = false;
+    var weekday = new Date(today+'T00:00:00').getDay();
+    (data.recurring||[]).forEach(function(r){
+      if(r.lastSpawned === today) return;
+      var due = r.freq === 'daily' || (r.freq === 'weekly' && r.weekday === weekday);
+      if(!due) return;
+      var alreadyThere = data.entries.some(function(e){ return e.recurringId === r.id && e.date === today; });
+      if(!alreadyThere){
+        data.entries.push({
+          id: uid(), date: today, time: r.time || null, type: 'task', title: r.title,
+          category: r.category, done: false, carried: false, originalDate: null, noCarry: true,
+          recurringId: r.id
+        });
+      }
+      r.lastSpawned = today;
+      changed = true;
+    });
+    return changed;
+  }
+  document.getElementById('recur-add-btn').addEventListener('click', function(){
+    var title = document.getElementById('f-recur-title').value.trim();
+    if(!title){ flash(document.getElementById('f-recur-title')); return; }
+    var time = document.getElementById('f-recur-time').value || null;
+    var freq = document.getElementById('f-recur-freq').value;
+    var weekday = parseInt(document.getElementById('f-recur-weekday').value, 10);
+    var category = document.getElementById('f-recur-cat').value;
+    data.recurring = data.recurring || [];
+    data.recurring.push({ id: uid(), title: title, time: time, freq: freq, weekday: weekday, category: category, lastSpawned: null });
+    document.getElementById('f-recur-title').value = "";
+    document.getElementById('f-recur-time').value = "";
+    spawnRecurring(todayStr());
+    scheduleSave(); renderAll();
+  });
+  function renderRecurring(){
+    var list = data.recurring || [];
+    document.getElementById('recurring-count').textContent = list.length;
+    var wrap = document.getElementById('recurring-list'); wrap.innerHTML = "";
+    if(list.length===0){ wrap.innerHTML = '<div class="empty-hint">Nothing set to repeat yet.</div>'; return; }
+    var WD = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+    list.forEach(function(r){
+      var row = document.createElement('div'); row.className = 'recur-row';
+      var freqLabel = r.freq === 'daily' ? 'Every day' : 'Every ' + WD[r.weekday];
+      row.innerHTML = '<span class="recur-title">'+escapeHtml(r.title)+'</span>' +
+        '<span class="recur-meta">'+(r.time?r.time+' · ':'')+freqLabel+' · '+r.category+'</span>' +
+        '<button class="mini-btn recur-del">\u2715</button>';
+      row.querySelector('.recur-del').addEventListener('click', function(){
+        data.recurring = data.recurring.filter(function(x){ return x.id !== r.id; });
+        scheduleSave(); renderRecurring();
+      });
+      wrap.appendChild(row);
+    });
   }
 
   // ---------- toast / alarm engine ----------
@@ -2190,6 +2465,7 @@
     renderWeek();
     renderTrends();
     updateGreeting();
+    renderRecurring();
   }
 
   // ---------- sidebar page navigation ----------
@@ -2290,6 +2566,77 @@
 
   // ---------- PDF export ----------
   document.getElementById('f-pdf-date').value = activeDate;
+  // ---------- full backup / restore (independent of Google Sheets) ----------
+  function blobToDataURL(blob){
+    return new Promise(function(resolve, reject){
+      var reader = new FileReader();
+      reader.onload = function(){ resolve(reader.result); };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+  function dataURLToBlob(dataURL){
+    var parts = dataURL.split(',');
+    var mime = parts[0].match(/:(.*?);/)[1];
+    var bin = atob(parts[1]);
+    var arr = new Uint8Array(bin.length);
+    for(var i=0;i<bin.length;i++){ arr[i] = bin.charCodeAt(i); }
+    return new Blob([arr], { type: mime });
+  }
+  document.getElementById('backup-download-btn').addEventListener('click', function(){
+    var statusEl = document.getElementById('backup-status-label');
+    statusEl.textContent = "Preparing…";
+    var allFileIds = [];
+    Object.keys(data.journalFiles||{}).forEach(function(d){
+      (data.journalFiles[d]||[]).forEach(function(f){ allFileIds.push(f.id); });
+    });
+    Promise.all(allFileIds.map(function(id){
+      return jfileGet(id).then(function(blob){
+        return blob ? blobToDataURL(blob).then(function(url){ return [id, url]; }) : [id, null];
+      });
+    })).then(function(pairs){
+      var fileBlobs = {};
+      pairs.forEach(function(p){ if(p[1]) fileBlobs[p[0]] = p[1]; });
+      var payload = { exportedAt: new Date().toISOString(), data: data, fileBlobs: fileBlobs };
+      var blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = 'daybook-backup-' + todayStr() + '.json';
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+      statusEl.textContent = "Downloaded";
+      setTimeout(function(){ statusEl.textContent = ""; }, 4000);
+    });
+  });
+  document.getElementById('backup-restore-btn').addEventListener('click', function(){
+    document.getElementById('backup-file-input').click();
+  });
+  document.getElementById('backup-file-input').addEventListener('change', function(e){
+    var file = e.target.files && e.target.files[0];
+    if(!file) return;
+    var statusEl = document.getElementById('backup-status-label');
+    statusEl.textContent = "Restoring…";
+    var reader = new FileReader();
+    reader.onload = function(){
+      try{
+        var payload = JSON.parse(reader.result);
+        if(!payload.data){ statusEl.textContent = "Invalid backup file"; return; }
+        Object.keys(data).forEach(function(k){ if(payload.data[k]!==undefined) data[k]=payload.data[k]; });
+        var fileBlobs = payload.fileBlobs || {};
+        Promise.all(Object.keys(fileBlobs).map(function(id){
+          return jfileSave(id, dataURLToBlob(fileBlobs[id]));
+        })).then(function(){
+          scheduleSave(); renderAll();
+          statusEl.textContent = "Restored";
+          showToast("\u2705 Backup restored — everything's back.", "success");
+          setTimeout(function(){ statusEl.textContent = ""; }, 4000);
+        });
+      }catch(err){ statusEl.textContent = "Couldn't read that file"; }
+      e.target.value = "";
+    };
+    reader.readAsText(file);
+  });
+
   document.getElementById('pdf-export-btn').addEventListener('click', function(){
     var dateInput = document.getElementById('f-pdf-date').value;
     var dateStr = dateInput || activeDate;
@@ -2387,6 +2734,67 @@
     doc.save("daybook-" + dateStr + ".pdf");
   });
 
+  // ---------- global search ----------
+  function runSearch(q){
+    q = q.trim().toLowerCase();
+    if(!q) return [];
+    var results = [];
+    data.entries.forEach(function(e){
+      if(e.title.toLowerCase().indexOf(q)>=0){
+        results.push({ label: e.title, meta: e.date + (e.time?' · '+e.time:'') + ' · ' + e.type, page: 'today', date: e.date });
+      }
+    });
+    data.topTasks.forEach(function(t){
+      if(t.title.toLowerCase().indexOf(q)>=0){
+        results.push({ label: t.title, meta: 'Priority task · ' + t.progress + '%', page: 'today' });
+      }
+    });
+    data.projects.forEach(function(p){
+      if(p.title.toLowerCase().indexOf(q)>=0){
+        results.push({ label: p.title, meta: 'Project · ' + p.status, page: 'projects' });
+      }
+    });
+    data.library.forEach(function(l){
+      if(l.title.toLowerCase().indexOf(q)>=0){
+        results.push({ label: l.title, meta: 'Library · ' + (l.category||'work'), page: 'library' });
+      }
+    });
+    Object.keys(data.journal||{}).forEach(function(d){
+      var text = data.journal[d];
+      if(text && text.toLowerCase().indexOf(q)>=0){
+        results.push({ label: text.slice(0,60) + (text.length>60?'…':''), meta: 'Journal · ' + d, page: 'journal', date: d });
+      }
+    });
+    return results.slice(0, 12);
+  }
+  var searchInput = document.getElementById('global-search');
+  var searchResultsEl = document.getElementById('search-results');
+  searchInput.addEventListener('input', function(){
+    var results = runSearch(searchInput.value);
+    searchResultsEl.innerHTML = '';
+    if(!searchInput.value.trim()){ searchResultsEl.classList.remove('show'); return; }
+    if(results.length===0){
+      searchResultsEl.innerHTML = '<div class="sr-empty">No matches.</div>';
+    } else {
+      results.forEach(function(r){
+        var item = document.createElement('div'); item.className = 'sr-item';
+        item.innerHTML = '<div class="sr-title">'+escapeHtml(r.label)+'</div><div class="sr-meta">'+escapeHtml(r.meta)+'</div>';
+        item.addEventListener('click', function(){
+          if(r.date) activeDate = r.date;
+          goToPage(r.page);
+          renderAll();
+          searchResultsEl.classList.remove('show');
+          searchInput.value = '';
+        });
+        searchResultsEl.appendChild(item);
+      });
+    }
+    searchResultsEl.classList.add('show');
+  });
+  document.addEventListener('click', function(e){
+    if(!e.target.closest('.sidebar-search')) searchResultsEl.classList.remove('show');
+  });
+
   async function init(){
     await loadData();
     if(!data.settings.themeMode) data.settings.themeMode = "auto";
@@ -2394,6 +2802,7 @@
     initCal();
     applyTheme();
     renderThemeToggle();
+    carryForward();
     renderAll();
     tickClock(); setInterval(tickClock, 15000);
     setInterval(checkTime, 5000);
