@@ -111,21 +111,29 @@
   .sr-empty{padding:10px;font-size:11.5px;color:var(--clove-faint);}
 
   @media (max-width:768px){
+    /* App-like mobile shell: a slim branding+search bar pinned to the top,
+       a native-style icon/label tab bar pinned to the bottom, content
+       scrolls between the two. Theme toggle lives on the Sync page instead
+       of the top bar — no room for it up there. */
     .app{flex-direction:column;}
-    .sidebar{width:100%;flex:none;height:auto;position:sticky;top:0;z-index:10;
-      flex-direction:row;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:8px 8px;
-      border-right:none;border-bottom:1px solid var(--line);align-items:center;}
-    .sidebar-title,.sidebar-name{display:none;}
-    .sidebar-footer{display:flex;flex:0 0 auto;margin:0 0 0 8px;padding:0;border-top:none;}
-    .sidebar-footer .save-note{display:none;}
-    .theme-toggle{margin-bottom:0;}
-    .nav-group{flex-direction:row;flex:0 0 auto;gap:2px;}
-    .nav-item{width:auto;white-space:nowrap;flex:0 0 auto;padding:8px 10px;}
-    .content{padding:18px 16px 90px;max-width:100%;}
-    /* hint that the nav bar scrolls sideways — otherwise the later items
-       (Health, Trends, Library, Journal, Sync, theme toggle) just look missing */
-    .sidebar::after{content:"";position:absolute;top:0;right:0;bottom:0;width:22px;
-      background:linear-gradient(to right, transparent, var(--page-bg));pointer-events:none;}
+    .sidebar{width:100%;flex:none;height:auto;overflow:visible;position:sticky;top:0;z-index:15;
+      flex-direction:row;align-items:center;gap:10px;padding:10px 14px;
+      border-right:none;border-bottom:1px solid var(--line);}
+    .sidebar-title{display:block;padding:0;font-size:15px;flex-shrink:0;}
+    .sidebar-name,.sidebar-footer{display:none;}
+    .sidebar-search{flex:1;min-width:0;padding:0;}
+    .nav-group{position:fixed;left:0;right:0;bottom:0;z-index:15;
+      flex-direction:row;gap:0;overflow-x:auto;-webkit-overflow-scrolling:touch;
+      background:var(--muslin);border-top:1px solid var(--line);
+      padding:6px 4px calc(6px + env(safe-area-inset-bottom));}
+    .nav-item{width:auto;flex:0 0 auto;flex-direction:column;gap:3px;
+      min-width:58px;padding:6px 4px;font-size:9.5px;font-weight:600;text-align:center;}
+    .nav-item .nav-icon{width:auto;font-size:18px;}
+    .content{padding:16px 16px calc(78px + env(safe-area-inset-bottom));max-width:100%;}
+    /* hint that the tab bar scrolls sideways — otherwise the later tabs
+       (Trends, Library, Journal, Sync) just look missing */
+    .nav-group::after{content:"";position:absolute;top:0;right:0;bottom:0;width:20px;
+      background:linear-gradient(to right, transparent, var(--muslin));pointer-events:none;}
   }
 
   /* ---------- header ---------- */
@@ -846,6 +854,16 @@
     <section class="page" id="page-sync">
       <h1 class="page-title">Sync &amp; settings</h1>
       <p class="page-sub">Back your data up to Google Sheets across devices.</p>
+
+      <div class="block">
+        <div class="block-head"><h2>Appearance</h2></div>
+        <label>Theme</label>
+        <div class="theme-toggle">
+          <button class="theme-opt" data-theme-mode="auto" title="Light in the morning, dark at night — automatic">Auto</button>
+          <button class="theme-opt" data-theme-mode="light">Light</button>
+          <button class="theme-opt" data-theme-mode="dark">Dark</button>
+        </div>
+      </div>
 
       <div class="block">
         <div class="block-head"><h2>Google Sheets sync</h2><span class="count" id="sync-status-label">Not connected</span></div>
