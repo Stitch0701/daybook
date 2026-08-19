@@ -337,9 +337,11 @@
   .kcol.drag-over{background:var(--chambray-soft);outline-color:var(--chambray);}
   .kcol h3{font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--clove-soft);margin:0 0 8px;}
   .kcard{background:var(--muslin);border:1px solid var(--line);border-radius:7px;padding:7px 8px;margin-bottom:7px;}
-  .kcard.dragging{opacity:0.4;}
+  .kcard.dragging{opacity:0.35;}
+  .kcard-ghost{position:fixed;pointer-events:none;z-index:999;box-shadow:0 10px 26px rgba(0,0,0,0.25);
+    transform:rotate(1.5deg);opacity:0.96;}
   .kcard-head{display:flex;align-items:center;gap:5px;}
-  .kcard-handle{cursor:grab;font-size:12px;color:var(--clove-faint);user-select:none;flex-shrink:0;padding:2px;line-height:1;}
+  .kcard-handle{cursor:grab;font-size:12px;color:var(--clove-faint);user-select:none;flex-shrink:0;padding:6px;line-height:1;touch-action:none;}
   .kcard-handle:active{cursor:grabbing;}
   .kcard input[type=text]{border:none;background:transparent;font-size:12.5px;font-weight:500;padding:1px;width:100%;}
   .kcard .krow{display:flex;gap:5px;align-items:center;margin-top:5px;}
@@ -386,6 +388,7 @@
   .lib-item{display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid var(--line);}
   .lib-item:last-child{border-bottom:none;}
   .lib-item input[type=text]{flex:1;border:none;background:transparent;font-size:13px;}
+  .lib-item input[type=time]{width:78px;flex:0 0 auto;font-family:var(--font-mono);font-size:11.5px;background:transparent;border:none;padding:2px;color:var(--clove-soft);}
   .lib-item .cat-tag{font-size:10px;text-transform:uppercase;white-space:nowrap;padding:2px 7px;border-radius:20px;}
   .lib-item .cat-tag.work{background:var(--chambray-soft);color:var(--chambray);}
   .lib-item .cat-tag.personal{background:var(--terracotta-soft);color:var(--terracotta);}
@@ -403,12 +406,10 @@
   .proj-mini-status.done{background:var(--chambray);color:#fff;}
   .proj-mini-pct{font-family:var(--font-mono);font-size:11px;color:var(--clove-soft);min-width:32px;text-align:right;}
 
-  /* ---------- alarms ---------- */
-  .alarm-item{display:flex;align-items:center;gap:10px;padding:7px 4px;border-bottom:1px solid var(--line);}
-  .alarm-item:last-child{border-bottom:none;}
-  .alarm-item .alarm-time{font-family:var(--font-mono);font-size:14px;font-weight:600;color:var(--clove);min-width:52px;}
-  .alarm-item .alarm-label{flex:1;font-size:12.5px;color:var(--clove-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .alarm-item.disabled .alarm-time,.alarm-item.disabled .alarm-label{color:var(--clove-faint);}
+  /* ---------- entry rows (reason line, priority rows) ---------- */
+  .entry-reason{font-size:10.5px;color:var(--danger);margin:-2px 0 6px 14px;line-height:1.4;}
+  .entry-reason.carried-reason{color:var(--terracotta);}
+  .entry-row .priority-pct{font-family:var(--font-mono);font-size:10.5px;color:var(--clove-soft);white-space:nowrap;}
 
   /* ---------- journal ---------- */
   .journal-history{margin-top:10px;}
@@ -549,7 +550,7 @@
             <button class="mini-btn clear-btn" data-clear="today" title="Clear today's list">Clear</button>
           </span>
         </div>
-        <p class="page-sub" style="margin:0 0 8px;">Everything on for today — meetings, tasks, and reminders together.</p>
+        <p class="page-sub" style="margin:0 0 8px;">Everything on for today — meetings, tasks, reminders, and top priorities together.</p>
         <div id="today-list"></div>
       </div>
 
@@ -578,18 +579,18 @@
       </div>
 
       <div class="block">
-        <div class="block-head"><h2>Alarms</h2>
+        <div class="block-head"><h2>Reminders</h2>
           <span style="display:flex;align-items:center;gap:8px;">
-            <span class="count" id="alarm-count"></span>
-            <button class="mini-btn clear-btn" data-clear="alarms" title="Clear all alarms">Clear</button>
+            <span class="count" id="reminder-count"></span>
           </span>
         </div>
+        <p class="page-sub" style="margin:0 0 8px;">Set a task with a time — you'll get a notification, and it shows up in Today's list above.</p>
         <div class="row3" style="margin-bottom:8px;">
-          <input type="time" id="f-alarm-time">
-          <input type="text" id="f-alarm-label" placeholder="Label (optional)">
-          <button class="btn small" id="alarm-add-btn">Set alarm</button>
+          <input type="text" id="f-reminder-title" placeholder="What do you need to remember?">
+          <input type="date" id="f-reminder-date">
+          <input type="time" id="f-reminder-time">
         </div>
-        <div id="alarm-list"></div>
+        <button class="btn small" id="reminder-add-btn" style="width:100%;">Set reminder</button>
       </div>
 
       <div class="block">
@@ -815,13 +816,15 @@
           </span>
         </div>
         <p class="page-sub" style="margin:0 0 10px;">Resets fresh every day — today's additions roll off tomorrow. Pick a date on the Calendar page to revisit an older queue.</p>
+        <input type="url" id="f-lib-url" placeholder="Paste link (https://…) — title fills in automatically" style="margin-bottom:4px;">
+        <div class="muted" id="lib-fetch-status" style="font-size:10.5px;min-height:14px;margin-bottom:4px;"></div>
         <div class="row3" style="margin-bottom:8px;">
           <input type="text" id="f-lib-title" placeholder="Title">
+          <input type="time" id="f-lib-time" title="When you plan to do this">
           <select id="f-lib-cat"><option value="work">Work</option><option value="personal">Personal</option></select>
-          <button class="btn small" id="lib-add-btn">Add</button>
         </div>
-        <input type="url" id="f-lib-url" placeholder="Paste link (https://…)" style="margin-bottom:8px;">
-        <div id="library-list"></div>
+        <button class="btn small" id="lib-add-btn" style="width:100%;">Add</button>
+        <div id="library-list" style="margin-top:10px;"></div>
       </div>
     </section>
 
@@ -886,7 +889,7 @@
 
       <div class="block">
         <div class="block-head"><h2>Notifications</h2><span class="count" id="notif-status-label">Not enabled</span></div>
-        <p class="page-sub" style="margin-bottom:6px;">Pop-out alerts for alarms and for tasks/meetings 5 minutes before they're due. Your browser will ask for permission once.</p>
+        <p class="page-sub" style="margin-bottom:6px;">Pop-out alerts for reminders and for tasks/meetings 5 minutes before they're due, plus a nudge when you're halfway (and done) for the day. Your browser will ask for permission once.</p>
         <p class="notice-note">⚠️ These only fire while this tab or installed app is open in the background — closing it or locking your phone for a while means you'll miss the alert. This isn't a true push notification yet.</p>
         <button class="btn small" id="notif-enable-btn">Enable notifications</button>
       </div>
@@ -948,7 +951,7 @@
   var STORAGE_KEY = "daybook-data";
   var data = {
     profile:{name:""},
-    entries:[], topTasks:[], projects:[], library:[], alarms:[], recurring:[],
+    entries:[], topTasks:[], projects:[], library:[], recurring:[],
     quickPresets:[
       {label:"+ Standup", title:"Standup", time:"09:30", type:"meeting", category:"work"},
       {label:"+ Deep work", title:"Deep work block", time:"10:30", type:"task", category:"work"},
@@ -986,8 +989,23 @@
       if(raw){
         var p = JSON.parse(raw);
         Object.keys(data).forEach(function(k){ if(p[k]!==undefined) data[k]=p[k]; });
+        // Alarms were replaced by reminder entries (which get the same
+        // notifications and also show up in Today's list). Migrate any old
+        // alarms into today-dated reminder entries, once.
+        if(p.alarms && p.alarms.length){
+          var today = todayStr();
+          p.alarms.forEach(function(a){
+            if(a.enabled===false) return;
+            data.entries.push({
+              id: uid(), date: today, time: a.time || null, type: 'reminder',
+              title: a.label && a.label.trim() ? a.label.trim() : 'Reminder',
+              category: 'personal', done:false, carried:false, originalDate:null, noCarry:true
+            });
+          });
+        }
       }
     }catch(e){}
+    delete data.alarms;
   }
   function scheduleSave(){
     document.getElementById('save-note').textContent = " Saving…";
@@ -1079,8 +1097,8 @@
     out.Projects = [["id","title","category","status","progress"]].concat(
       data.projects.map(function(p){ return [p.id,p.title,p.category,p.status,p.progress]; })
     );
-    out.Library = [["id","date","title","category","url","done"]].concat(
-      data.library.map(function(l){ return [l.id,l.date,l.title,l.category,l.url||"",boolStr(l.done)]; })
+    out.Library = [["id","date","title","category","url","time","done"]].concat(
+      data.library.map(function(l){ return [l.id,l.date,l.title,l.category,l.url||"",l.time||"",boolStr(l.done)]; })
     );
     out.Health = [["date","steps","caloriesBurned"]].concat(
       Object.keys(data.health).map(function(d){ return [d, data.health[d].steps||0, data.health[d].caloriesBurned||0]; })
@@ -1133,7 +1151,7 @@
     });
     rows = (rowsByTab.Library||[]).slice(1);
     data.library = rows.map(function(r){
-      return { id:r[0], date:r[1], title:r[2], category:r[3], url:r[4]||"", done:r[5]==="TRUE" };
+      return { id:r[0], date:r[1], title:r[2], category:r[3], url:r[4]||"", time:r[5]||null, done:r[6]==="TRUE" };
     });
     rows = (rowsByTab.Health||[]).slice(1);
     data.health = {};
@@ -1445,7 +1463,27 @@
     }
     return false;
   }
+  function entryReasonLines(e){
+    var lines = [];
+    if(e.carried && e.originalDate){
+      lines.push({ text: "Carried over from " + friendlyDate(e.originalDate) + " \u2014 wasn't finished then, so it rolled into today.", cls: "carried-reason" });
+    }
+    if(isOverdue(e)){
+      if(e.time) lines.push({ text: "Needs attention \u2014 was due at " + e.time + " today and isn't marked done yet.", cls: "" });
+      else lines.push({ text: "Needs attention \u2014 still open from an earlier day.", cls: "" });
+    }
+    return lines;
+  }
+  function appendReasonLines(wrap, e){
+    entryReasonLines(e).forEach(function(l){
+      var p = document.createElement('div');
+      p.className = 'entry-reason' + (l.cls ? ' ' + l.cls : '');
+      p.textContent = l.text;
+      wrap.appendChild(p);
+    });
+  }
   function entryRow(e){
+    var wrap = document.createElement('div');
     var row = document.createElement('div');
     row.className = 'entry-row ' + (e.category!=='none'?e.category:'') + (e.done?' done':'') + (isOverdue(e)?' overdue':'');
     row.innerHTML =
@@ -1458,19 +1496,56 @@
       '<button class="mini-btn del-btn" title="Delete">\u2715</button>';
     row.querySelector('input[type=time]').addEventListener('change', function(ev){ e.time = ev.target.value || null; scheduleSave(); renderAll(); });
     row.querySelector('input[type=text]').addEventListener('input', function(ev){ e.title = ev.target.value; scheduleSave(); });
-    row.querySelector('.done-btn').addEventListener('click', function(){ e.done=!e.done; scheduleSave(); renderAll(); });
+    row.querySelector('.done-btn').addEventListener('click', function(){
+      var wasDone = e.done;
+      e.done = !e.done;
+      scheduleSave();
+      if(!wasDone && e.done) notifyTaskDone(e.title);
+      renderAll();
+      checkDailyMilestones();
+    });
     row.querySelector('.del-btn').addEventListener('click', function(){ data.entries = data.entries.filter(function(x){return x.id!==e.id;}); scheduleSave(); renderAll(); });
-    return row;
+    wrap.appendChild(row);
+    appendReasonLines(wrap, e);
+    return wrap;
+  }
+
+  // ---------- top-priority tasks rendered inline in Today's list ----------
+  function priorityRow(tt){
+    var wrap = document.createElement('div');
+    var row = document.createElement('div');
+    row.className = 'entry-row ' + (tt.category||'work') + (tt.done?' done':'');
+    row.innerHTML =
+      '<span class="type-badge" style="min-width:30px;">priority</span>' +
+      '<input type="text" value="'+escapeHtml(tt.title)+'">' +
+      '<span class="priority-pct">'+tt.progress+'%</span>' +
+      '<button class="mini-btn done-btn" title="Toggle done">'+(tt.done?'\u21BA':'\u2713')+'</button>' +
+      '<button class="mini-btn del-btn" title="Delete">\u2715</button>';
+    row.querySelector('input[type=text]').addEventListener('input', function(ev){ tt.title = ev.target.value; scheduleSave(); });
+    row.querySelector('.done-btn').addEventListener('click', function(){
+      var wasDone = tt.done;
+      tt.done = !tt.done;
+      if(tt.done) tt.progress = 100; else if(tt.progress>=100) tt.progress = 0;
+      scheduleSave();
+      if(!wasDone && tt.done) notifyTaskDone(tt.title);
+      renderAll();
+      checkDailyMilestones();
+    });
+    row.querySelector('.del-btn').addEventListener('click', function(){ data.topTasks = data.topTasks.filter(function(x){return x.id!==tt.id;}); scheduleSave(); renderAll(); });
+    wrap.appendChild(row);
+    return wrap;
   }
 
   function renderTodayUpcoming(){
     var today = todayStr();
-    var todayList = entriesForDate(today);
+    var todayEntries = entriesForDate(today);
+    var todayPriorities = data.topTasks.filter(function(t){ return !t.done; });
     var todayWrap = document.getElementById('today-list');
-    document.getElementById('today-count').textContent = todayList.length;
+    document.getElementById('today-count').textContent = todayEntries.length + todayPriorities.length;
     todayWrap.innerHTML = "";
-    if(todayList.length===0){ todayWrap.innerHTML = '<div class="empty-hint">Nothing planned yet.</div>'; }
-    todayList.forEach(function(e){ todayWrap.appendChild(entryRow(e)); });
+    if(todayEntries.length===0 && todayPriorities.length===0){ todayWrap.innerHTML = '<div class="empty-hint">Nothing planned yet.</div>'; }
+    todayPriorities.forEach(function(tt){ todayWrap.appendChild(priorityRow(tt)); });
+    todayEntries.forEach(function(e){ todayWrap.appendChild(entryRow(e)); });
 
     var now = new Date();
     var nowHHMM = pad(now.getHours())+":"+pad(now.getMinutes());
@@ -1485,21 +1560,54 @@
     upWrap.innerHTML = "";
     if(upcoming.length===0){ upWrap.innerHTML = '<div class="empty-hint">Nothing on the horizon.</div>'; }
     upcoming.forEach(function(e){
-      var r = entryRow(e);
+      var wrap = entryRow(e);
+      var inner = wrap.querySelector('.entry-row');
       var dtag = document.createElement('span');
       dtag.className = 'type-badge'; dtag.textContent = e.date === today ? "Today" : e.date;
-      r.insertBefore(dtag, r.firstChild);
-      upWrap.appendChild(r);
+      inner.insertBefore(dtag, inner.firstChild);
+      upWrap.appendChild(wrap);
     });
   }
 
-  // ---------- daily battery ----------
-  function renderDailyBattery(){
+  // ---------- daily battery + completion/milestone notifications ----------
+  function todayCompletionStats(){
     var today = todayStr();
-    var list = data.entries.filter(function(e){ return e.date===today && e.type==='task'; });
-    var pct = list.length ? Math.round(list.filter(function(e){return e.done;}).length / list.length * 100) : 0;
-    document.getElementById('daily-battery').style.width = pct+"%";
-    document.getElementById('daily-pct').textContent = pct+"%";
+    var entries = data.entries.filter(function(e){ return e.date===today; });
+    var total = entries.length + data.topTasks.length;
+    var done = entries.filter(function(e){return e.done;}).length + data.topTasks.filter(function(t){return t.done;}).length;
+    var pct = total ? Math.round(done / total * 100) : 0;
+    return { total: total, done: done, pct: pct };
+  }
+  function renderDailyBattery(){
+    var stats = todayCompletionStats();
+    document.getElementById('daily-battery').style.width = stats.pct+"%";
+    document.getElementById('daily-pct').textContent = stats.pct+"%";
+  }
+  function notifyTaskDone(title){
+    showToast("\u2713 Done: " + title, "");
+    notifyOS("Nice work", "\u201c" + title + "\u201d is done.");
+  }
+  function checkDailyMilestones(){
+    var today = todayStr();
+    if(data.settings.milestoneDate !== today){
+      data.settings.milestoneDate = today;
+      data.settings.milestone50 = false;
+      data.settings.milestone100 = false;
+    }
+    var stats = todayCompletionStats();
+    if(stats.total < 2) return; // not meaningful with 0-1 items
+    if(stats.pct >= 50 && !data.settings.milestone50){
+      data.settings.milestone50 = true;
+      showToast("\ud83d\udca7 Halfway there \u2014 " + stats.done + "/" + stats.total + " done today.", "");
+      notifyOS("Halfway there", "You've finished about half of today's list \u2014 keep going.");
+      scheduleSave();
+    }
+    if(stats.pct >= 100 && !data.settings.milestone100){
+      data.settings.milestone100 = true;
+      showToast("\ud83c\udf89 All done for today!", "");
+      notifyOS("All done!", "You finished everything on today's list.");
+      scheduleSave();
+    }
   }
 
   // ---------- top tasks ----------
@@ -1508,7 +1616,7 @@
     if(!t) return;
     data.topTasks.push({id:uid(),title:t,category:"work",intensity:"low",progress:0,done:false,expanded:false});
     document.getElementById('f-toptask-title').value = "";
-    scheduleSave(); renderTopTasks();
+    scheduleSave(); renderAll();
   });
   var INTENSITIES = ["low","medium","high"];
   function renderTopTasks(){
@@ -1532,7 +1640,14 @@
           '<input type="range" min="0" max="100" value="'+tt.progress+'" class="tt-range">' +
           '<div class="toptask-pct">'+tt.progress+'%</div>' +
         '</div>';
-      item.querySelector('.tt-done').addEventListener('change', function(ev){ tt.done=ev.target.checked; if(tt.done) tt.progress=100; scheduleSave(); renderTopTasks(); });
+      item.querySelector('.tt-done').addEventListener('change', function(ev){
+        var wasDone = tt.done;
+        tt.done=ev.target.checked; if(tt.done) tt.progress=100;
+        scheduleSave();
+        if(!wasDone && tt.done) notifyTaskDone(tt.title);
+        renderAll();
+        checkDailyMilestones();
+      });
       item.querySelector('.tt-title').addEventListener('input', function(ev){ tt.title=ev.target.value; scheduleSave(); });
       item.querySelector('.pill').addEventListener('click', function(){
         tt.category = tt.category==='work' ? 'personal' : 'work';
@@ -1544,14 +1659,16 @@
         scheduleSave(); renderTopTasks();
       });
       item.querySelector('.tt-toggle').addEventListener('click', function(){ tt.expanded=!tt.expanded; renderTopTasks(); });
-      item.querySelector('.tt-del').addEventListener('click', function(){ data.topTasks = data.topTasks.filter(function(x){return x.id!==tt.id;}); scheduleSave(); renderTopTasks(); });
+      item.querySelector('.tt-del').addEventListener('click', function(){ data.topTasks = data.topTasks.filter(function(x){return x.id!==tt.id;}); scheduleSave(); renderAll(); });
       var range = item.querySelector('.tt-range');
       range.addEventListener('input', function(ev){
         tt.progress = parseInt(ev.target.value,10);
         item.querySelector('.toptask-pct').textContent = tt.progress+"%";
         if(tt.progress>=100) tt.done=true; else tt.done=false;
       });
-      range.addEventListener('change', function(){ scheduleSave(); renderTopTasks(); });
+      range.addEventListener('change', function(){
+        scheduleSave(); renderAll(); checkDailyMilestones();
+      });
       wrap.appendChild(item);
     });
     var overall = data.topTasks.length ? Math.round(data.topTasks.reduce(function(s,t){return s+t.progress;},0)/data.topTasks.length) : 0;
@@ -1574,22 +1691,66 @@
     if(newStatus==='done') p.progress = 100;
     scheduleSave(); renderKanban();
   }
+  // Pointer Events (not native HTML5 drag-and-drop) so this actually works on
+  // touch — iOS/Android don't fire dragstart from a touch gesture at all,
+  // which is why dragging previously did nothing on phones/tablets.
+  function armCardDrag(card, handle, projectId){
+    handle.addEventListener('pointerdown', function(ev){
+      if(ev.button !== undefined && ev.button !== 0) return;
+      ev.preventDefault();
+      var rect = card.getBoundingClientRect();
+      var offX = ev.clientX - rect.left, offY = ev.clientY - rect.top;
+      var ghost = card.cloneNode(true);
+      ghost.className = 'kcard kcard-ghost';
+      ghost.style.width = rect.width + 'px';
+      ghost.style.left = rect.left + 'px';
+      ghost.style.top = rect.top + 'px';
+      document.body.appendChild(ghost);
+      card.classList.add('dragging');
+      var overCol = null;
+      function onMove(ev2){
+        ghost.style.left = (ev2.clientX - offX) + 'px';
+        ghost.style.top = (ev2.clientY - offY) + 'px';
+        var el = document.elementFromPoint(ev2.clientX, ev2.clientY);
+        var col = el && el.closest && el.closest('.kcol');
+        if(col !== overCol){
+          if(overCol) overCol.classList.remove('drag-over');
+          overCol = col || null;
+          if(overCol) overCol.classList.add('drag-over');
+        }
+      }
+      function onUp(){
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onUp);
+        document.removeEventListener('pointercancel', onUp);
+        ghost.remove();
+        card.classList.remove('dragging');
+        if(overCol){
+          overCol.classList.remove('drag-over');
+          moveProject(projectId, overCol.getAttribute('data-status'));
+        }
+      }
+      document.addEventListener('pointermove', onMove);
+      document.addEventListener('pointerup', onUp);
+      document.addEventListener('pointercancel', onUp);
+    });
+  }
   function renderKanban(){
     var board = document.getElementById('kanban');
     board.innerHTML = "";
     STATUSES.forEach(function(s){
-      var col = document.createElement('div'); col.className = 'kcol';
+      var col = document.createElement('div'); col.className = 'kcol'; col.setAttribute('data-status', s[0]);
       var h = document.createElement('h3'); h.textContent = s[1]; col.appendChild(h);
       data.projects.filter(function(p){return p.status===s[0];}).forEach(function(p){
-        var card = document.createElement('div'); card.className='kcard'; card.draggable = false;
+        var card = document.createElement('div'); card.className='kcard';
         var fillClass = p.category==='personal' ? 'progress-fill personal' : 'progress-fill';
         card.innerHTML =
-          '<div class="kcard-head"><span class="kcard-handle" title="Drag to move">⠷⠷</span>' +
+          '<div class="kcard-head"><span class="kcard-handle" title="Drag to move">⢷⢷</span>' +
           '<input type="text" value="'+escapeHtml(p.title)+'" class="p-title"></div>' +
           '<div class="krow">' +
             '<select class="p-status">'+STATUSES.map(function(o){return '<option value="'+o[0]+'"'+(o[0]===p.status?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select>' +
             '<select class="p-cat"><option value="work"'+(p.category==='work'?' selected':'')+'>Work</option><option value="personal"'+(p.category==='personal'?' selected':'')+'>Personal</option></select>' +
-            '<button class="mini-btn p-del">\u2715</button>' +
+            '<button class="mini-btn p-del">✕</button>' +
           '</div>' +
           '<input type="range" min="0" max="100" value="'+p.progress+'" class="p-range" style="margin-top:6px;">' +
           '<div class="progress-track"><div class="'+fillClass+'" style="width:'+p.progress+'%"></div></div>';
@@ -1602,37 +1763,13 @@
           card.querySelector('.progress-track div').style.width = p.progress+'%';
         });
         card.querySelector('.p-range').addEventListener('change', function(){ scheduleSave(); });
-        var handle = card.querySelector('.kcard-handle');
-        var arm = function(){ card.draggable = true; };
-        handle.addEventListener('mousedown', arm);
-        handle.addEventListener('touchstart', arm, {passive:true});
-        card.addEventListener('dragstart', function(ev){
-          ev.dataTransfer.setData('text/plain', p.id);
-          ev.dataTransfer.effectAllowed = 'move';
-          setTimeout(function(){ card.classList.add('dragging'); }, 0);
-        });
-        card.addEventListener('dragend', function(){ card.classList.remove('dragging'); card.draggable = false; });
+        armCardDrag(card, card.querySelector('.kcard-handle'), p.id);
         col.appendChild(card);
-      });
-      col.addEventListener('dragover', function(ev){ ev.preventDefault(); ev.dataTransfer.dropEffect = 'move'; col.classList.add('drag-over'); });
-      col.addEventListener('dragleave', function(){ col.classList.remove('drag-over'); });
-      col.addEventListener('drop', function(ev){
-        ev.preventDefault(); col.classList.remove('drag-over');
-        var id = ev.dataTransfer.getData('text/plain');
-        moveProject(id, s[0]);
       });
       board.appendChild(col);
     });
     if(typeof renderTodayProjects === 'function') renderTodayProjects();
   }
-  // Safety net: if a handle-press never turns into a real drag (e.g. a plain
-  // click), disarm draggable on mouseup/touchend so cards don't stay draggable.
-  document.addEventListener('mouseup', function(){
-    document.querySelectorAll('#kanban .kcard[draggable="true"]').forEach(function(c){ c.draggable = false; });
-  });
-  document.addEventListener('touchend', function(){
-    document.querySelectorAll('#kanban .kcard[draggable="true"]').forEach(function(c){ c.draggable = false; });
-  });
 
   // ---------- calendar ----------
   function initCal(){
@@ -1845,13 +1982,66 @@
   });
 
   // ---------- library ----------
+  // Best-effort: pull the <title> off a pasted link so you don't have to
+  // retype it. Most sites block direct cross-origin fetches (no CORS
+  // header), so this tries a direct fetch first, then falls back to a
+  // public read-only proxy (r.jina.ai) that returns the page as text with
+  // no API key needed. If both fail — offline, or the proxy is down — you
+  // just type the title yourself, same as before.
+  function extractTitleFromHtml(html){
+    var m = html.match(/<title[^>]*>([^<]*)<\/title>/i);
+    if(!m) return null;
+    var t = m[1].replace(/\s+/g,' ').trim();
+    return t || null;
+  }
+  function fetchWithTimeout(url, ms){
+    var ctrl = new AbortController();
+    var timer = setTimeout(function(){ ctrl.abort(); }, ms);
+    return fetch(url, { signal: ctrl.signal }).finally(function(){ clearTimeout(timer); });
+  }
+  async function fetchLinkTitle(url){
+    try{
+      var res = await fetchWithTimeout(url, 2500);
+      if(res.ok){
+        var html = await res.text();
+        var t = extractTitleFromHtml(html);
+        if(t) return t;
+      }
+    }catch(e){}
+    try{
+      var res2 = await fetchWithTimeout('https://r.jina.ai/' + url, 4000);
+      if(res2.ok){
+        var text = await res2.text();
+        var m = text.match(/^Title:\s*(.+)$/mi);
+        if(m && m[1].trim()) return m[1].trim();
+        var firstLine = text.split('\n').map(function(l){return l.trim();}).filter(Boolean)[0];
+        if(firstLine) return firstLine.slice(0,140);
+      }
+    }catch(e){}
+    return null;
+  }
+  document.getElementById('f-lib-url').addEventListener('change', function(){
+    var url = this.value.trim();
+    var status = document.getElementById('lib-fetch-status');
+    var titleInput = document.getElementById('f-lib-title');
+    if(!url || !/^https?:\/\//i.test(url) || titleInput.value.trim()){ status.textContent = ""; return; }
+    status.textContent = "Fetching title…";
+    fetchLinkTitle(url).then(function(t){
+      if(titleInput.value.trim()) return; // user typed one while we were fetching
+      if(t){ titleInput.value = t; status.textContent = "Title filled in from the link."; }
+      else { status.textContent = "Couldn't read a title from that link — type one below."; }
+    });
+  });
   document.getElementById('lib-add-btn').addEventListener('click', function(){
-    var t = document.getElementById('f-lib-title').value.trim(); if(!t) return;
+    var t = document.getElementById('f-lib-title').value.trim(); if(!t){ flash(document.getElementById('f-lib-title')); return; }
     var cat = document.getElementById('f-lib-cat').value;
     var url = document.getElementById('f-lib-url').value.trim();
-    data.library.push({id:uid(),date:activeDate,title:t,category:cat,url:url,done:false});
+    var time = document.getElementById('f-lib-time').value || null;
+    data.library.push({id:uid(),date:activeDate,title:t,category:cat,url:url,time:time,done:false});
     document.getElementById('f-lib-title').value = "";
     document.getElementById('f-lib-url').value = "";
+    document.getElementById('f-lib-time').value = "";
+    document.getElementById('lib-fetch-status').textContent = "";
     scheduleSave(); renderLibrary(); renderTodayLibrary();
   });
   function libraryRow(item, opts){
@@ -1860,14 +2050,17 @@
     var hasUrl = !!(item.url && item.url.trim());
     row.innerHTML =
       '<input type="checkbox" '+(item.done?'checked':'')+' class="lib-done">' +
+      '<input type="time" value="'+(item.time||'')+'" class="lib-time" title="When do you plan to do this?">' +
       (opts.readonlyTitle
         ? '<span style="flex:1;font-size:13px;'+(item.done?'text-decoration:line-through;color:var(--clove-faint);':'')+'">'+escapeHtml(item.title)+'</span>'
-        : '<input type="text" value="'+escapeHtml(item.title)+'">') +
+        : '<input type="text" value="'+escapeHtml(item.title)+'" class="lib-title-input">') +
       '<span class="cat-tag '+(item.category||'work')+'">'+(item.category||'work')+'</span>' +
       '<a class="lib-link'+(hasUrl?'':' disabled')+'" href="'+(hasUrl?escapeHtml(item.url):'#')+'" target="_blank" rel="noopener noreferrer" title="'+(hasUrl?'Open link':'No link added')+'">\uD83D\uDD17</a>' +
       (opts.hideDelete ? '' : '<button class="mini-btn lib-del">\u2715</button>');
     row.querySelector('.lib-done').addEventListener('change', function(ev){ item.done=ev.target.checked; scheduleSave(); renderLibrary(); renderTodayLibrary(); });
-    var titleInput = row.querySelector('input[type=text]');
+    var timeInput = row.querySelector('.lib-time');
+    if(timeInput){ timeInput.addEventListener('change', function(ev){ item.time = ev.target.value || null; scheduleSave(); renderLibrary(); renderTodayLibrary(); }); }
+    var titleInput = row.querySelector('.lib-title-input');
     if(titleInput){ titleInput.addEventListener('input', function(ev){ item.title=ev.target.value; scheduleSave(); renderTodayLibrary(); }); }
     var delBtn = row.querySelector('.lib-del');
     if(delBtn){ delBtn.addEventListener('click', function(){ data.library=data.library.filter(function(x){return x.id!==item.id;}); scheduleSave(); renderLibrary(); renderTodayLibrary(); }); }
@@ -2306,14 +2499,6 @@
         playBeep();
       }
     });
-    data.alarms.forEach(function(a){
-      if(a.enabled!==false && a.time===hhmm){
-        var label = a.label && a.label.trim() ? a.label.trim() : "Alarm";
-        showToast("⏰ "+label, "");
-        notifyOS("Alarm", label);
-        playBeep();
-      }
-    });
     data.library.forEach(function(item){
       if(item.remindEvery && !item.done){
         var hr = now.getHours();
@@ -2407,33 +2592,25 @@
     });
   }
 
-  // ---------- alarms ----------
-  document.getElementById('alarm-add-btn').addEventListener('click', function(){
-    var t = document.getElementById('f-alarm-time').value;
-    if(!t) return;
-    var label = document.getElementById('f-alarm-label').value.trim();
-    data.alarms.push({ id: uid(), time: t, label: label, enabled: true });
-    data.alarms.sort(function(a,b){ return a.time < b.time ? -1 : 1; });
-    document.getElementById('f-alarm-time').value = "";
-    document.getElementById('f-alarm-label').value = "";
-    scheduleSave(); renderAlarms();
+  // ---------- reminders (replaces alarms — these are just type:'reminder'
+  // entries, so they get real notifications AND show up in Today's list) ----------
+  document.getElementById('f-reminder-date').value = todayStr();
+  document.getElementById('reminder-add-btn').addEventListener('click', function(){
+    var title = document.getElementById('f-reminder-title').value.trim();
+    if(!title){ flash(document.getElementById('f-reminder-title')); return; }
+    var date = document.getElementById('f-reminder-date').value || todayStr();
+    var time = document.getElementById('f-reminder-time').value || null;
+    data.entries.push({id:uid(),date:date,time:time,type:'reminder',title:title,category:'personal',done:false,carried:false,originalDate:null,noCarry:false});
+    document.getElementById('f-reminder-title').value = "";
+    document.getElementById('f-reminder-time').value = "";
+    scheduleSave(); renderAll();
+    showToast("Reminder set for " + (date===todayStr() ? "today" : friendlyDate(date)) + (time ? " at "+time : ""), "");
   });
-  function renderAlarms(){
-    var wrap = document.getElementById('alarm-list');
-    document.getElementById('alarm-count').textContent = data.alarms.length;
-    wrap.innerHTML = "";
-    if(data.alarms.length===0){ wrap.innerHTML = '<div class="empty-hint">No alarms set.</div>'; return; }
-    data.alarms.forEach(function(a){
-      var row = document.createElement('div'); row.className = 'alarm-item' + (a.enabled===false ? ' disabled' : '');
-      row.innerHTML =
-        '<input type="checkbox" '+(a.enabled!==false?'checked':'')+' class="alarm-toggle" title="Enable/disable">' +
-        '<span class="alarm-time">'+a.time+'</span>' +
-        '<span class="alarm-label">'+escapeHtml(a.label||"Alarm")+'</span>' +
-        '<button class="mini-btn alarm-del">✕</button>';
-      row.querySelector('.alarm-toggle').addEventListener('change', function(ev){ a.enabled = ev.target.checked; scheduleSave(); renderAlarms(); });
-      row.querySelector('.alarm-del').addEventListener('click', function(){ data.alarms = data.alarms.filter(function(x){ return x.id!==a.id; }); scheduleSave(); renderAlarms(); });
-      wrap.appendChild(row);
-    });
+  function renderReminderCount(){
+    var today = todayStr();
+    var count = data.entries.filter(function(e){ return e.date===today && e.type==='reminder' && !e.done; }).length;
+    var el = document.getElementById('reminder-count');
+    if(el) el.textContent = count;
   }
 
   // ---------- theme (auto light/dark by time of day, or manual) ----------
@@ -2471,7 +2648,7 @@
     renderTopTasks();
     renderKanban();
     renderTodayProjects();
-    renderAlarms();
+    renderReminderCount();
     var p = activeDate.split("-"); calYear=parseInt(p[0]); calMonth=parseInt(p[1])-1;
     renderCal();
     renderSpine();
@@ -2535,10 +2712,6 @@
         files.forEach(function(f){ jfileDelete(f.id); });
         if(data.journalFiles) delete data.journalFiles[activeDate];
       }
-    },
-    alarms: {
-      label: "clear all alarms",
-      run: function(){ data.alarms = []; }
     }
   };
   // Custom overlay instead of window.confirm(): the native dialog is silently
@@ -2736,7 +2909,7 @@
     var pending = data.library.filter(function(item){ return !item.done; });
     if(pending.length===0){ emptyNote("Nothing queued."); }
     pending.forEach(function(item){
-      line("• " + item.title + " (" + (item.category||"work") + ")" + (item.url ? "  " + item.url : ""));
+      line("• " + (item.time ? item.time+"  " : "") + item.title + " (" + (item.category||"work") + ")" + (item.url ? "  " + item.url : ""));
     });
     y += 8;
 
