@@ -368,8 +368,10 @@
   /* ---------- timeline ---------- */
   .spine-wrap{position:relative;padding-left:52px;margin-top:10px;}
   .spine{position:relative;border-left:2px solid var(--clove);padding-left:16px;}
-  .hour-row{position:relative;min-height:44px;border-bottom:1px dashed var(--line);padding:5px 0;}
+  .hour-row{position:relative;min-height:44px;border-bottom:1px dashed var(--line);padding:5px 0;cursor:pointer;}
   .hour-row:last-child{border-bottom:none;}
+  .hour-row:hover{background:var(--sandstone-soft);border-radius:6px;}
+  .hour-row.current-hour:hover{background:rgba(122,156,179,0.2);}
   .hour-label{position:absolute;left:-52px;top:3px;width:42px;text-align:right;font-family:var(--font-mono);
     font-size:10.5px;color:var(--clove-faint);}
   .hour-row.current-hour{background:rgba(122,156,179,0.12);border-radius:6px;}
@@ -1618,6 +1620,9 @@
     document.getElementById('f-toptask-title').value = "";
     scheduleSave(); renderAll();
   });
+  document.getElementById('f-toptask-title').addEventListener('keydown', function(ev){
+    if(ev.key==='Enter'){ document.getElementById('toptask-add-btn').click(); }
+  });
   var INTENSITIES = ["low","medium","high"];
   function renderTopTasks(){
     var wrap = document.getElementById('toptask-list');
@@ -1682,6 +1687,9 @@
     data.projects.push({id:uid(),title:t,category:cat,status:"todo",progress:0});
     document.getElementById('f-project-title').value = "";
     scheduleSave(); renderKanban();
+  });
+  document.getElementById('f-project-title').addEventListener('keydown', function(ev){
+    if(ev.key==='Enter'){ document.getElementById('project-add-btn').click(); }
   });
   var STATUSES = [["todo","To do"],["inprogress","In progress"],["review","Review"],["done","Done"]];
   function moveProject(id, newStatus){
@@ -1804,12 +1812,12 @@
   // ---------- calendar quick-event modal ----------
   var calModalDate = null;
   var calModalCat = "work";
-  function openCalModal(dstr){
+  function openCalModal(dstr, presetTime){
     calModalDate = dstr;
     activeDate = dstr;
     document.getElementById('cal-modal-date').textContent = friendlyDate(dstr);
     document.getElementById('cal-modal-title').value = "";
-    document.getElementById('cal-modal-time').value = "";
+    document.getElementById('cal-modal-time').value = presetTime || "";
     document.getElementById('cal-modal-type').value = "task";
     calModalCat = "work";
     document.querySelectorAll('#cal-modal-cat .pill').forEach(function(p){ p.classList.toggle('active', p.getAttribute('data-cat')==='work'); });
@@ -1868,6 +1876,11 @@
       var hourEntries = list.filter(function(e){ return e.time && parseInt(e.time.split(':')[0],10)===h; });
       var untimed = (h===6) ? list.filter(function(e){ return !e.time; }) : [];
       hourEntries.concat(untimed).forEach(function(e){ row.appendChild(entryRow(e)); });
+      row.addEventListener('click', function(hourClosure){ return function(ev){
+        if(ev.target.closest('.entry-row')) return; // let existing items handle their own clicks
+        openCalModal(activeDate, pad(hourClosure)+':00');
+        document.getElementById('cal-modal-title').focus();
+      }; }(h));
       spine.appendChild(row);
     }
   }
@@ -1893,6 +1906,11 @@
     data.meals[activeDate].push({id:uid(),name:n,calories:c});
     document.getElementById('f-meal-name').value=""; document.getElementById('f-meal-cal').value="";
     scheduleSave(); renderHealth(); renderTrends();
+  });
+  ['f-meal-name','f-meal-cal'].forEach(function(id){
+    document.getElementById(id).addEventListener('keydown', function(ev){
+      if(ev.key==='Enter'){ document.getElementById('meal-add-btn').click(); }
+    });
   });
   function renderHealth(){
     document.getElementById('health-date-label').textContent = friendlyDate(activeDate);
@@ -2043,6 +2061,9 @@
     document.getElementById('f-lib-time').value = "";
     document.getElementById('lib-fetch-status').textContent = "";
     scheduleSave(); renderLibrary(); renderTodayLibrary();
+  });
+  document.getElementById('f-lib-title').addEventListener('keydown', function(ev){
+    if(ev.key==='Enter'){ document.getElementById('lib-add-btn').click(); }
   });
   function libraryRow(item, opts){
     opts = opts || {};
@@ -2396,6 +2417,9 @@
     spawnRecurring(todayStr());
     scheduleSave(); renderAll();
   });
+  document.getElementById('f-recur-title').addEventListener('keydown', function(ev){
+    if(ev.key==='Enter'){ document.getElementById('recur-add-btn').click(); }
+  });
   function renderRecurring(){
     var list = data.recurring || [];
     document.getElementById('recurring-count').textContent = list.length;
@@ -2605,6 +2629,9 @@
     document.getElementById('f-reminder-time').value = "";
     scheduleSave(); renderAll();
     showToast("Reminder set for " + (date===todayStr() ? "today" : friendlyDate(date)) + (time ? " at "+time : ""), "");
+  });
+  document.getElementById('f-reminder-title').addEventListener('keydown', function(ev){
+    if(ev.key==='Enter'){ document.getElementById('reminder-add-btn').click(); }
   });
   function renderReminderCount(){
     var today = todayStr();
