@@ -111,16 +111,29 @@
   .sr-empty{padding:10px;font-size:11.5px;color:var(--clove-faint);}
 
   @media (max-width:768px){
+    /* App-like mobile shell: a slim branding+search bar pinned to the top,
+       a native-style icon/label tab bar pinned to the bottom, content
+       scrolls between the two. Theme toggle lives on the Sync page instead
+       of the top bar — no room for it up there. */
     .app{flex-direction:column;}
-    .sidebar{width:100%;flex:none;height:auto;position:sticky;top:0;z-index:10;
-      flex-direction:row;overflow-x:auto;padding:8px 8px;border-right:none;border-bottom:1px solid var(--line);
-      align-items:center;}
-    .sidebar-title,.sidebar-name{display:none;}
-    .sidebar-footer{display:flex;flex:0 0 auto;margin:0 0 0 auto;padding:0;border-top:none;}
-    .sidebar-footer .save-note{display:none;}
-    .nav-group{flex-direction:row;gap:2px;}
-    .nav-item{white-space:nowrap;flex:0 0 auto;padding:8px 10px;}
-    .content{padding:18px 16px 90px;max-width:100%;}
+    .sidebar{width:100%;flex:none;height:auto;overflow:visible;position:sticky;top:0;z-index:15;
+      flex-direction:row;align-items:center;gap:10px;padding:10px 14px;
+      border-right:none;border-bottom:1px solid var(--line);}
+    .sidebar-title{display:block;padding:0;font-size:15px;flex-shrink:0;}
+    .sidebar-name,.sidebar-footer{display:none;}
+    .sidebar-search{flex:1;min-width:0;padding:0;}
+    .nav-group{position:fixed;left:0;right:0;bottom:0;z-index:15;
+      flex-direction:row;gap:0;overflow-x:auto;-webkit-overflow-scrolling:touch;
+      background:var(--muslin);border-top:1px solid var(--line);
+      padding:6px 4px calc(6px + env(safe-area-inset-bottom));}
+    .nav-item{width:auto;flex:0 0 auto;flex-direction:column;gap:3px;
+      min-width:58px;padding:6px 4px;font-size:9.5px;font-weight:600;text-align:center;}
+    .nav-item .nav-icon{width:auto;font-size:18px;}
+    .content{padding:16px 16px calc(78px + env(safe-area-inset-bottom));max-width:100%;}
+    /* hint that the tab bar scrolls sideways — otherwise the later tabs
+       (Trends, Library, Journal, Sync) just look missing */
+    .nav-group::after{content:"";position:absolute;top:0;right:0;bottom:0;width:20px;
+      background:linear-gradient(to right, transparent, var(--muslin));pointer-events:none;}
   }
 
   /* ---------- header ---------- */
@@ -162,7 +175,7 @@
   .panel{background:var(--muslin);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:18px;}
   .panel-head{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:12px;}
   .block{background:var(--muslin);border:1px solid var(--line);border-radius:10px;padding:18px 20px;margin-bottom:16px;}
-  .block-head{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:14px;}
+  .block-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px 10px;border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:14px;}
   .quick-add-block{background:var(--chambray-soft);border-color:transparent;}
   .quick-chip-edit{background:transparent;border-style:solid;}
 
@@ -362,8 +375,8 @@
   .now-line::before{content:"";position:absolute;left:-4px;top:-4px;width:9px;height:9px;border-radius:50%;background:var(--terracotta);}
 
   /* ---------- health / meals ---------- */
-  .health-row{display:flex;gap:14px;}
-  .health-metric{flex:1;background:var(--muslin);border-radius:8px;padding:10px;text-align:center;}
+  .health-row{display:flex;flex-wrap:wrap;gap:14px;}
+  .health-metric{flex:1 1 130px;background:var(--muslin);border-radius:8px;padding:10px;text-align:center;}
   .health-metric .num{font-family:var(--font-mono);font-size:22px;font-weight:500;}
   .health-metric .lbl{font-size:10.5px;color:var(--clove-soft);text-transform:uppercase;}
   .meal-item{display:flex;justify-content:space-between;font-size:12.5px;padding:4px 0;border-bottom:1px solid var(--line);}
@@ -843,6 +856,16 @@
       <p class="page-sub">Back your data up to Google Sheets across devices.</p>
 
       <div class="block">
+        <div class="block-head"><h2>Appearance</h2></div>
+        <label>Theme</label>
+        <div class="theme-toggle">
+          <button class="theme-opt" data-theme-mode="auto" title="Light in the morning, dark at night — automatic">Auto</button>
+          <button class="theme-opt" data-theme-mode="light">Light</button>
+          <button class="theme-opt" data-theme-mode="dark">Dark</button>
+        </div>
+      </div>
+
+      <div class="block">
         <div class="block-head"><h2>Google Sheets sync</h2><span class="count" id="sync-status-label">Not connected</span></div>
         <div id="sync-signed-out">
           <button class="btn small" id="gsheets-signin-btn">Sign in with Google</button>
@@ -892,7 +915,7 @@
 
   <div class="modal-backdrop" id="cal-modal-backdrop">
     <div class="modal-card">
-      <div class="modal-head"><h3 id="cal-modal-date">—</h3><button class="mini-btn" id="cal-modal-close">\u2715</button></div>
+      <div class="modal-head"><h3 id="cal-modal-date">—</h3><button class="mini-btn" id="cal-modal-close">✕</button></div>
       <label>Title</label>
       <input type="text" id="cal-modal-title" placeholder="e.g. Team sync">
       <div class="row2">
@@ -2808,6 +2831,12 @@
   }
 
   init();
+
+  if('serviceWorker' in navigator){
+    window.addEventListener('load', function(){
+      navigator.serviceWorker.register('sw.js').catch(function(){});
+    });
+  }
 })();
 </script>
 
