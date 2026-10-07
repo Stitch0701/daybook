@@ -1,6 +1,6 @@
 // Minimal offline cache for the Daybook app shell.
 // Bump CACHE_NAME whenever index.html changes so installed apps pick up the update.
-const CACHE_NAME = 'daybook-shell-v1';
+const CACHE_NAME = 'daybook-shell-v2';
 const SHELL_FILES = [
   './',
   './index.html',
