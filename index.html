@@ -63,7 +63,11 @@ section.card h2{margin:0 0 6px;font-size:13px;font-weight:600;letter-spacing:.04
 form.add{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 form.add input[type=text]{flex:1 1 150px;min-width:0}
 input[type=text],input[type=time],input[type=date],select,textarea{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 9px;width:100%}
-form.add input[type=time],form.add select{width:auto}
+form.add .extra{display:none;flex:1 0 100%;gap:6px}
+form.add.open .extra{display:flex}
+form.add .extra input,form.add .extra select{flex:1;width:auto}
+form.add .more{border:1px solid var(--line);padding:6px 10px;font-size:15px}
+form.add.open .more{background:var(--accent-soft);color:var(--text)}
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
 .seg button{background:none;border:0;padding:5px 12px;color:var(--muted)}
 .seg button.on{background:var(--accent-soft);color:var(--text)}
@@ -344,9 +348,11 @@ code{background:var(--bg);border:1px solid var(--line);border-radius:4px;padding
       var list=its.length ? its.map(function(i){return rowHtml(i,false);}).join('') : '<div class="empty">Nothing here yet.</div>';
       var form='<form class="add" data-scope="'+scope+'" data-sec="'+sec.id+'">'+
         '<input type="text" placeholder="'+sec.ph+'" aria-label="'+sec.ph+'" autocomplete="off">'+
-        (persist?'':'<input type="time" aria-label="Time">'+
-        '<select aria-label="Reminder">'+REMIND.map(function(r){return '<option value="'+r[0]+'">'+r[1]+'</option>';}).join('')+'</select>')+
-        '<button class="btn" type="submit">Add</button></form>';
+        (persist?'':'<button class="icon-btn more" type="button" data-more="1" aria-label="Time and reminder" title="Time and reminder">⏱</button>')+
+        '<button class="btn" type="submit">Add</button>'+
+        (persist?'':'<div class="extra"><input type="time" aria-label="Time">'+
+        '<select aria-label="Reminder">'+REMIND.map(function(r){return '<option value="'+r[0]+'">'+r[1]+'</option>';}).join('')+'</select></div>')+
+        '</form>';
       return '<section class="card">'+head+list+form+'</section>';
     }).join('');
   }
@@ -481,6 +487,7 @@ code{background:var(--bg);border:1px solid var(--line);border-radius:4px;padding
   document.addEventListener('click',function(e){
     var t=e.target, el;
     if((el=t.closest('[data-tab]'))){ ui.tab=el.getAttribute('data-tab'); render(); return; }
+    if((el=t.closest('[data-more]'))){ el.closest('form').classList.toggle('open'); return; }
     if((el=t.closest('[data-range]'))){ ui.range=el.getAttribute('data-range'); render(); return; }
     if((el=t.closest('[data-goto]'))){ ui.tab=el.getAttribute('data-goto'); render(); return; }
     if((el=t.closest('[data-edit]'))){ openEdit(el.getAttribute('data-edit')); return; }
