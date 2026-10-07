@@ -91,6 +91,12 @@ form.add.open .more{background:var(--accent-soft);color:var(--text)}
 ol.steps{padding-left:18px;margin:6px 0}
 code{background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:0 4px;font-size:13px}
 .carry-row{display:flex;gap:10px;padding:6px 0;border-top:1px solid var(--line);align-items:flex-start}
+.chip.pri-high{color:var(--danger);border-color:var(--danger)}
+.chip.pri-med{color:var(--warn);border-color:var(--warn)}
+.subs{margin-top:4px}
+.sub-row{display:flex;gap:8px;align-items:center;padding:2px 0;font-size:14px;color:var(--muted);cursor:pointer}
+.sub-row input{width:15px;height:15px;accent-color:var(--accent)}
+.sub-row.done span{text-decoration:line-through}
 </style>
 </head>
 <body>
@@ -140,6 +146,8 @@ code{background:var(--bg);border:1px solid var(--line);border-radius:4px;padding
   };
   var SCOPE_LABEL = {work:'Work', personal:'Personal', both:'Both'};
   var REMIND = [['','No reminder'],['0','At time'],['10','10 min before'],['30','30 min before'],['60','1 hour before'],['1440','1 day before']];
+  var PRI = [['','No priority'],['med','Medium'],['high','High']];
+  var PRI_RANK = {high:2,med:1};
   var REPEAT = [['','Does not repeat'],['daily','Every day'],['weekdays','Weekdays'],['weekly','Every week']];
   var DEFAULT_PLANS = {
     W1:{name:'Push', ex:['Bench press 3×8','Overhead press 3×8','Incline dumbbell press 3×10','Triceps dips 3×10','Plank 3×45s']},
@@ -190,6 +198,8 @@ code{background:var(--bg);border:1px solid var(--line);border-radius:4px;padding
   function cmpItems(a,b){
     if(!!a.done!==!!b.done) return a.done?1:-1;
     if(a.date!==b.date) return (a.date||'')<(b.date||'')?-1:1;
+    var pa=PRI_RANK[a.pri]||0, pb=PRI_RANK[b.pri]||0;
+    if(pa!==pb) return pb-pa;
     var ta=a.time||'99:99', tb=b.time||'99:99';
     return ta<tb?-1:ta>tb?1:0;
   }
@@ -209,7 +219,7 @@ code{background:var(--bg);border:1px solid var(--line);border-radius:4px;padding
       if(!matches(r,date)) return;
       var has = state.items.some(function(i){return i.rid===r.id && i.date===date;});
       if(has) return;
-      state.items.push({id:uid(),scope:r.scope,sec:r.sec,text:r.text,date:date,time:r.time,remind:r.remind,done:false,rid:r.id,
+      state.items.push({id:uid(),scope:r.scope,sec:r.sec,text:r.text,date:date,time:r.time,remind:r.remind,pri:r.pri||'',subs:(r.subs||[]).map(function(x){return {id:uid(),text:x,done:false};}),done:false,rid:r.id,
         handled: date<todayStr()});
       changed=true;
     });
@@ -268,6 +278,8 @@ code{background:var(--bg);border:1px solid var(--line);border-radius:4px;padding
     items.forEach(function(it){
       L.push('BEGIN:VEVENT','UID:'+it.id+'-'+it.date+'@daybook','DTSTAMP:'+stamp,'SUMMARY:'+icsEsc(it.text),
         'CATEGORIES:'+SCOPE_LABEL[it.scope]);
+      if(it.pri) L.push('PRIORITY:'+(it.pri==='high'?1:5));
+      if((it.subs||[]).length) L.push('DESCRIPTION:'+icsEsc(it.subs.map(function(x){return (x.done?'[x] ':'[ ] ')+x.text;}).join('\n')));
       if(it.time){ L.push('DTSTART:'+icsDT(it.date,it.time,0),'DTEND:'+icsDT(it.date,it.time,60)); }
       else { L.push('DTSTART;VALUE=DATE:'+it.date.replace(/-/g,''),'DTEND;VALUE=DATE:'+addDays(it.date,1).replace(/-/g,'')); }
       if(it.remind!=null && it.remind!==''){
@@ -294,7 +306,7 @@ code{background:var(--bg);border:1px solid var(--line);border-radius:4px;padding
     items=items.filter(function(i){return i.date && !i.done;});
     if(!items.length){ toast('Nothing to send'); return; }
     var payload=JSON.stringify(items.map(function(i){
-      return {title:i.text,date:i.date,time:i.time||'',list:SCOPE_LABEL[i.scope]};
+      return {title:i.text,date:i.date,time:i.time||'',list:SCOPE_LABEL[i.scope],priority:i.pri||'',subtasks:(i.subs||[]).map(function(x){return x.text;})};
     }));
     window.location.href='shortcuts://run-shortcut?name='+encodeURIComponent('Daybook to Reminders')+
       '&input=text&text='+encodeURIComponent(payload);
@@ -328,10 +340,16 @@ code{background:var(--bg);border:1px solid var(--line);border-radius:4px;padding
     if(it.time) chips+='<span class="chip t">'+fmtTime(it.time)+'</span>';
     if(it.remind!=null && it.remind!=='') chips+='<span class="chip">🔔 '+esc(remindLabel(it))+'</span>';
     if(it.rid) chips+='<span class="chip">↻</span>';
+    var subs=it.subs||[];
+    if(it.pri) chips='<span class="chip pri-'+it.pri+'">⚑ '+(it.pri==='high'?'High':'Medium')+'</span>'+chips;
+    if(subs.length) chips+='<span class="chip">'+subs.filter(function(x){return x.done;}).length+'/'+subs.length+' subtasks</span>';
+    var subHtml=subs.length?'<div class="subs" data-subrow="1">'+subs.map(function(x){
+      return '<label class="sub-row'+(x.done?' done':'')+'"><input type="checkbox" data-sub="'+it.id+'|'+x.id+'"'+(x.done?' checked':'')+'><span>'+esc(x.text)+'</span></label>';
+    }).join('')+'</div>':'';
     return '<div class="row'+(it.done?' done':'')+'">'+
       (showDate?'<div class="day-label">'+esc(shortDate(it.date).replace(/,.*/,''))+'<br>'+esc(parseYmd(it.date).toLocaleDateString(undefined,{month:'short',day:'numeric'}))+'</div>':'')+
       '<input type="checkbox" data-toggle="'+it.id+'"'+(it.done?' checked':'')+' aria-label="Done">'+
-      '<div class="body" data-edit="'+it.id+'"><div class="txt">'+esc(it.text)+'</div>'+(chips?'<div class="chips">'+chips+'</div>':'')+'</div></div>';
+      '<div class="body" data-edit="'+it.id+'"><div class="txt">'+esc(it.text)+'</div>'+(chips?'<div class="chips">'+chips+'</div>':'')+subHtml+'</div></div>';
   }
   function remindLabel(it){
     if(!it.time) return 'morning of';
@@ -351,7 +369,8 @@ code{background:var(--bg);border:1px solid var(--line);border-radius:4px;padding
         (persist?'':'<button class="icon-btn more" type="button" data-more="1" aria-label="Time and reminder" title="Time and reminder">⏱</button>')+
         '<button class="btn" type="submit">Add</button>'+
         (persist?'':'<div class="extra"><input type="time" aria-label="Time">'+
-        '<select aria-label="Reminder">'+REMIND.map(function(r){return '<option value="'+r[0]+'">'+r[1]+'</option>';}).join('')+'</select></div>')+
+        '<select aria-label="Reminder">'+REMIND.map(function(r){return '<option value="'+r[0]+'">'+r[1]+'</option>';}).join('')+'</select>'+
+        '<select aria-label="Priority" data-pri="1">'+PRI.map(function(r){return '<option value="'+r[0]+'">'+(r[0]?'⚑ ':'')+r[1]+'</option>';}).join('')+'</select></div>')+
         '</form>';
       return '<section class="card">'+head+list+form+'</section>';
     }).join('');
@@ -421,6 +440,8 @@ code{background:var(--bg);border:1px solid var(--line);border-radius:4px;padding
         '<div class="field"><label>Time</label><input type="time" name="time" value="'+(it.time||'')+'"></div></div>'+
         '<div class="grid2"><div class="field"><label>Reminder</label><select name="remind">'+optionsHtml(REMIND,it.remind)+'</select></div>'+
         '<div class="field"><label>Repeat</label><select name="repeat">'+optionsHtml(REPEAT,rec?rec.repeat:'')+'</select></div></div>')+
+      '<div class="field"><label>Priority</label><select name="pri">'+optionsHtml(PRI,it.pri)+'</select></div>'+
+      '<div class="field"><label>Subtasks (one per line)</label><textarea name="subs" rows="4" placeholder="Break it into steps">'+esc((it.subs||[]).map(function(x){return x.text;}).join('\n'))+'</textarea></div>'+
       '<div class="actions"><button class="btn" type="submit">Save</button>'+
       '<button class="btn ghost" type="button" data-close="1">Cancel</button><span class="sp"></span>'+
       (persist?'':'<button class="btn ghost" type="button" data-item-ics="'+id+'">Calendar</button><button class="btn ghost" type="button" data-item-rem="'+id+'">Reminders</button>')+
@@ -486,6 +507,7 @@ code{background:var(--bg);border:1px solid var(--line);border-radius:4px;padding
 
   document.addEventListener('click',function(e){
     var t=e.target, el;
+    if(t.closest('[data-subrow]')) return;
     if((el=t.closest('[data-tab]'))){ ui.tab=el.getAttribute('data-tab'); render(); return; }
     if((el=t.closest('[data-more]'))){ el.closest('form').classList.toggle('open'); return; }
     if((el=t.closest('[data-range]'))){ ui.range=el.getAttribute('data-range'); render(); return; }
@@ -526,6 +548,10 @@ code{background:var(--bg);border:1px solid var(--line);border-radius:4px;padding
   document.addEventListener('change',function(e){
     var t=e.target;
     if(t.id==='datePick' && t.value){ ui.date=t.value; ui.followToday=(ui.date===todayStr()); render(); return; }
+    if(t.hasAttribute('data-sub')){
+      var ids=t.getAttribute('data-sub').split('|'), pit=findItem(ids[0]);
+      if(pit){ (pit.subs||[]).forEach(function(x){ if(x.id===ids[1]) x.done=t.checked; }); save(); render(); } return;
+    }
     if(t.hasAttribute('data-toggle')){
       var it=findItem(t.getAttribute('data-toggle')); if(it){ it.done=t.checked; save(); render(); } return;
     }
@@ -558,13 +584,16 @@ code{background:var(--bg);border:1px solid var(--line);border-radius:4px;padding
     if(f.classList.contains('add')){
       var scope=f.getAttribute('data-scope'), sec=f.getAttribute('data-sec'), persist=secDef(scope,sec).persist;
       var inp=f.querySelector('input[type=text]'), raw=inp.value.trim(); if(!raw) return;
-      var time='', text=raw;
+      var time='', text=raw, pri='';
+      var bang=text.match(/\s*(!{1,2})\s*$/);
+      if(bang){ pri=bang[1].length>1?'high':'med'; text=text.slice(0,bang.index).trim()||text; }
       if(!persist){
         var tin=f.querySelector('input[type=time]').value;
-        if(tin) time=tin; else { var x=extractTime(raw); text=x.text||raw; time=x.time; }
+        if(tin) time=tin; else { var x=extractTime(text); text=x.text||text; time=x.time; }
+        pri=f.querySelector('select[data-pri]').value||pri;
       }
-      var remind=persist?'':f.querySelector('select').value;
-      state.items.push({id:uid(),scope:scope,sec:sec,text:text,date:persist?null:ui.date,time:time,remind:remind,done:false});
+      var remind=persist?'':f.querySelector('select:not([data-pri])').value;
+      state.items.push({id:uid(),scope:scope,sec:sec,text:text,date:persist?null:ui.date,time:time,remind:remind,pri:pri,subs:[],done:false});
       save(); render();
       var nf=document.querySelector('form.add[data-scope="'+scope+'"][data-sec="'+sec+'"] input[type=text]'); if(nf) nf.focus();
       return;
@@ -573,16 +602,22 @@ code{background:var(--bg);border:1px solid var(--line);border-radius:4px;padding
       var it=findItem(f.getAttribute('data-id')); if(!it) return;
       var d=new FormData(f);
       it.text=(d.get('text')||'').trim()||it.text;
+      it.pri=d.get('pri')||'';
+      var old=it.subs||[];
+      it.subs=(d.get('subs')||'').split('\n').map(function(x){return x.trim();}).filter(Boolean).map(function(txt){
+        var m=old.filter(function(o){return o.text===txt;})[0];
+        return m||{id:uid(),text:txt,done:false};
+      });
       if(d.has('date')){
         it.date=d.get('date')||it.date; it.time=d.get('time')||''; it.remind=d.get('remind');
         var rep=d.get('repeat');
         if(it.rid){
           var r=state.recurring.filter(function(x){return x.id===it.rid;})[0];
           if(r && !rep) state.recurring=state.recurring.filter(function(x){return x.id!==it.rid;});
-          else if(r){ r.repeat=rep; r.text=it.text; r.time=it.time; r.remind=it.remind; }
+          else if(r){ r.repeat=rep; r.text=it.text; r.time=it.time; r.remind=it.remind; r.pri=it.pri; r.subs=it.subs.map(function(x){return x.text;}); }
         } else if(rep){
           var rid=uid();
-          state.recurring.push({id:rid,scope:it.scope,sec:it.sec,text:it.text,time:it.time,remind:it.remind,repeat:rep,start:it.date});
+          state.recurring.push({id:rid,scope:it.scope,sec:it.sec,text:it.text,time:it.time,remind:it.remind,pri:it.pri,subs:it.subs.map(function(x){return x.text;}),repeat:rep,start:it.date});
           it.rid=rid;
         }
         if(!it.rid && it.date>=todayStr()) it.handled=false;
