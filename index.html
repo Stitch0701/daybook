@@ -97,6 +97,18 @@ code{background:var(--bg);border:1px solid var(--line);border-radius:4px;padding
 .sub-row{display:flex;gap:8px;align-items:center;padding:2px 0;font-size:14px;color:var(--muted);cursor:pointer}
 .sub-row input{width:15px;height:15px;accent-color:var(--accent)}
 .sub-row.done span{text-decoration:line-through}
+.bar{height:6px;background:var(--line);border-radius:3px;overflow:hidden;flex:1}
+.bar>i{display:block;height:100%;background:var(--accent)}
+.stat-row{display:flex;align-items:center;gap:10px;padding:4px 0;font-size:14px}
+.stat-row .lbl{width:64px;color:var(--muted)}
+.stat-row .num{width:44px;text-align:right;color:var(--muted)}
+.big{font-size:28px;font-weight:600;line-height:1.1}
+.week-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.days7{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center;font-size:12px;color:var(--muted)}
+.days7 .d{border:1px solid var(--line);border-radius:8px;padding:6px 0;background:var(--bg)}
+.days7 .d.full{border-color:var(--accent);color:var(--text)}
+.days7 .d b{display:block;font-weight:600;color:var(--text);font-size:13px}
+textarea.rev{min-height:64px;resize:vertical}
 </style>
 </head>
 <body>
@@ -124,7 +136,7 @@ code{background:var(--bg);border:1px solid var(--line);border-radius:4px;padding
 
   // ---------- config ----------
   var KEY = 'daybook2';
-  var TABS = [['overview','Overview'],['personal','Personal'],['work','Work'],['both','Both']];
+  var TABS = [['overview','Overview'],['personal','Personal'],['work','Work'],['both','Both'],['review','Review']];
   var SECTIONS = {
     personal: [
       {id:'goals',    label:'Personal goals',   persist:true, ph:'Add a goal'},
@@ -166,6 +178,7 @@ code{background:var(--bg);border:1px solid var(--line);border-radius:4px;padding
     s.plans = s.plans || JSON.parse(JSON.stringify(DEFAULT_PLANS));
     s.wdays = s.wdays || {};
     s.fired = s.fired || {};
+    s.reviews = s.reviews || {};
     s.theme = s.theme || '';
     return s;
   }
@@ -324,7 +337,7 @@ code{background:var(--bg);border:1px solid var(--line);border-radius:4px;padding
     document.getElementById('tabs').innerHTML = TABS.map(function(x){
       return '<button class="tab'+(ui.tab===x[0]?' on':'')+'" data-tab="'+x[0]+'">'+x[1]+'</button>';
     }).join('');
-    var h = carryBanner() + (ui.tab==='overview' ? renderOverview() : renderScope(ui.tab));
+    var h = carryBanner() + (ui.tab==='overview' ? renderOverview() : ui.tab==='review' ? renderReview() : renderScope(ui.tab));
     document.getElementById('app').innerHTML = h;
   }
 
@@ -394,6 +407,70 @@ code{background:var(--bg);border:1px solid var(--line);border-radius:4px;padding
       '<div class="plan-chips">'+chips+'</div>'+
       '<form class="add" data-plan-form="1" style="margin:0 0 6px"><input type="text" placeholder="Type W1, W2 or W3" aria-label="Workout code" autocomplete="off"><button class="btn ghost" type="submit">Set</button></form>'+
       body+'</section>';
+  }
+
+
+  // ---------- weekly review ----------
+  function weekStart(date){ var d=parseYmd(date); return addDays(date,-((d.getDay()+6)%7)); }
+  function bar(done,total){ return '<div class="bar"><i style="width:'+(total?Math.round(done/total*100):0)+'%"></i></div>'; }
+  function renderReview(){
+    var ws=weekStart(ui.date), we=addDays(ws,6), t=todayStr(), i;
+    for(i=0;i<14;i++){ var dd=addDays(ws,i); if(dd>=t) ensureRecurring(dd); }
+    var inWeek=function(a,b){ return live().filter(function(x){return x.date && x.date>=a && x.date<=b && !isPersist(x);}); };
+    var its=inWeek(ws,we), done=its.filter(function(x){return x.done;}).length;
+    var rv=state.reviews[ws]||{}, prev=state.reviews[addDays(ws,-7)]||{};
+    var rng=shortDate(ws).replace(/^\w+, /,'')+' – '+shortDate(we).replace(/^\w+, /,'');
+    var h='<div class="week-nav"><button class="icon-btn" data-act="wk-prev" aria-label="Previous week">‹</button>'+
+      '<div style="text-align:center"><div style="font-weight:600">'+esc(rng)+'</div><div class="sub">'+(ws<=t&&t<=we?'This week':we<t?'Past week':'Upcoming week')+'</div></div>'+
+      '<button class="icon-btn" data-act="wk-next" aria-label="Next week">›</button></div>';
+
+    // summary
+    h+='<section class="card"><h2><span>Completed</span></h2>'+
+      (its.length ? '<div class="big">'+done+' of '+its.length+' <span class="sub">('+Math.round(done/its.length*100)+'%)</span></div>' : '<div class="empty">No dated items this week.</div>');
+    ['work','personal','both'].forEach(function(sc){
+      var g=its.filter(function(x){return x.scope===sc;}), gd=g.filter(function(x){return x.done;}).length;
+      if(g.length) h+='<div class="stat-row"><span class="lbl">'+SCOPE_LABEL[sc]+'</span>'+bar(gd,g.length)+'<span class="num">'+gd+'/'+g.length+'</span></div>';
+    });
+    var hi=its.filter(function(x){return x.pri==='high';});
+    if(hi.length) h+='<div class="stat-row"><span class="lbl">⚑ High</span>'+bar(hi.filter(function(x){return x.done;}).length,hi.length)+'<span class="num">'+hi.filter(function(x){return x.done;}).length+'/'+hi.length+'</span></div>';
+    h+='</section>';
+
+    // day strip + workouts
+    var planned=0, finished=0, cells='';
+    for(i=0;i<7;i++){
+      var d=addDays(ws,i), di=its.filter(function(x){return x.date===d;}), dn=di.filter(function(x){return x.done;}).length;
+      var wd=state.wdays[d], wl='';
+      if(wd && wd.plan && state.plans[wd.plan]){
+        var n=state.plans[wd.plan].ex.length, c=Object.keys(wd.done||{}).filter(function(k){return wd.done[k];}).length;
+        planned++; if(n&&c>=n) finished++;
+        wl='<br>'+wd.plan+' '+c+'/'+n;
+      }
+      cells+='<div class="d'+(di.length&&dn===di.length?' full':'')+'"><b>'+parseYmd(d).toLocaleDateString(undefined,{weekday:'narrow'})+'</b>'+(di.length?dn+'/'+di.length:'–')+wl+'</div>';
+    }
+    h+='<section class="card"><h2><span>Day by day</span></h2><div class="days7">'+cells+'</div>'+
+      '<div class="sub" style="margin-top:8px">'+(planned?'Workouts finished: '+finished+' of '+planned+' planned.':'No workouts planned this week.')+'</div></section>';
+
+    // unfinished
+    var open=its.filter(function(x){return !x.done && !x.rid && x.date<t;}).sort(cmpItems);
+    if(open.length){
+      h+='<section class="card"><h2><span>Didn’t get done</span></h2>'+open.map(function(x){
+        return '<label class="carry-row"><input type="checkbox" data-wk="'+x.id+'" checked><span><div>'+esc(x.text)+'</div><div class="sub">'+SCOPE_LABEL[x.scope]+' · '+esc(shortDate(x.date))+'</div></span></label>';
+      }).join('')+'<div class="actions"><button class="btn" data-act="wk-move">Move selected to today</button></div></section>';
+    }
+
+    // reflection
+    h+='<section class="card"><h2><span>Reflect</span></h2>'+
+      (prev.focus?'<div class="banner" style="margin-bottom:10px"><span><b>Last week’s focus:</b> '+esc(prev.focus)+'</span></div>':'')+
+      [['wins','What went well?'],['issues','What got in the way?'],['focus','Focus for next week']].map(function(f){
+        return '<div class="field"><label>'+f[1]+'</label><textarea class="rev" data-rev="'+f[0]+'" data-week="'+ws+'">'+esc(rv[f[0]]||'')+'</textarea></div>';
+      }).join('')+'</section>';
+
+    // next week
+    var nx=inWeek(addDays(we,1),addDays(we,7)).filter(function(x){return !x.done;}).sort(function(a,b){
+      var pa=PRI_RANK[a.pri]||0, pb=PRI_RANK[b.pri]||0; if(pa!==pb) return pb-pa; return a.date<b.date?-1:a.date>b.date?1:0; });
+    h+='<section class="card"><h2><span>Next week</span><span style="font-weight:400">'+nx.length+' planned</span></h2>'+
+      (nx.length ? nx.slice(0,6).map(function(x){return rowHtml(x,true);}).join('')+(nx.length>6?'<div class="empty">+ '+(nx.length-6)+' more</div>':'') : '<div class="empty">Nothing planned yet.</div>')+'</section>';
+    return h;
   }
 
   function renderOverview(){
@@ -534,6 +611,14 @@ code{background:var(--bg);border:1px solid var(--line);border-radius:4px;padding
       if(act==='prev'||act==='next'){ ui.date=addDays(ui.date,act==='prev'?-1:1); ui.followToday=(ui.date===todayStr()); render(); }
       else if(act==='today'){ ui.date=todayStr(); ui.followToday=true; render(); }
       else if(act==='carry') openCarry();
+      else if(act==='wk-prev'||act==='wk-next'){ ui.date=addDays(weekStart(ui.date),act==='wk-prev'?-7:7); ui.followToday=(ui.date===todayStr()); render(); }
+      else if(act==='wk-move'){
+        var tt=todayStr(), n=0;
+        document.querySelectorAll('input[data-wk]:checked').forEach(function(c){
+          var m=findItem(c.getAttribute('data-wk')); if(m){ m.date=tt; m.handled=false; n++; }
+        });
+        save(); render(); toast(n?'Moved to today':'Nothing selected');
+      }
       else if(act==='plans') openPlans();
       else if(act==='settings') openSettings();
       else if(act==='ics-day') exportIcs(itemsOnDay(ui.date),'daybook-'+ui.date+'.ics');
@@ -557,6 +642,9 @@ code{background:var(--bg);border:1px solid var(--line);border-radius:4px;padding
     }
     if(t.hasAttribute('data-wex')){
       var wd=state.wdays[ui.date]; if(wd){ wd.done=wd.done||{}; wd.done[t.getAttribute('data-wex')]=t.checked; save(); render(); } return;
+    }
+    if(t.hasAttribute('data-rev')){
+      var wk=t.getAttribute('data-week'); state.reviews[wk]=state.reviews[wk]||{}; state.reviews[wk][t.getAttribute('data-rev')]=t.value; save(); return;
     }
     if(t.id==='themeSel'){ state.theme=t.value; save(); applyTheme(); return; }
     if(t.id==='importFile' && t.files[0]){
