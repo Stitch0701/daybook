@@ -124,7 +124,10 @@ textarea.rev{min-height:64px;resize:vertical}
         <button class="icon-btn" data-act="next" aria-label="Next day">›</button>
         <button class="link" data-act="today" id="todayBtn">Today</button>
       </div>
-      <button class="icon-btn" data-act="settings" aria-label="Settings">⚙</button>
+      <div style="display:flex;gap:2px">
+        <button class="icon-btn" id="themeBtn" data-act="theme"></button>
+        <button class="icon-btn" data-act="settings" aria-label="Settings">⚙</button>
+      </div>
     </div>
     <nav class="tabs" id="tabs"></nav>
   </div>
@@ -620,10 +623,15 @@ textarea.rev{min-height:64px;resize:vertical}
   }
 
   // ---------- events ----------
+  var darkMq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+  function isDark(){ return state.theme ? state.theme==='dark' : !!(darkMq && darkMq.matches); }
   function applyTheme(){
     if(state.theme) document.documentElement.setAttribute('data-theme',state.theme);
     else document.documentElement.removeAttribute('data-theme');
+    var b=document.getElementById('themeBtn');
+    if(b){ b.textContent=isDark()?'☀':'☾'; b.setAttribute('aria-label',isDark()?'Switch to light mode':'Switch to dark mode'); b.title=b.getAttribute('aria-label'); }
   }
+  if(darkMq && darkMq.addEventListener) darkMq.addEventListener('change',applyTheme);
   function findItem(id){ return state.items.filter(function(i){return i.id===id;})[0]; }
 
   document.addEventListener('click',function(e){
@@ -654,6 +662,7 @@ textarea.rev{min-height:64px;resize:vertical}
       var act=el.getAttribute('data-act');
       if(act==='prev'||act==='next'){ ui.date=addDays(ui.date,act==='prev'?-1:1); ui.followToday=(ui.date===todayStr()); render(); }
       else if(act==='today'){ ui.date=todayStr(); ui.followToday=true; render(); }
+      else if(act==='theme'){ state.theme=isDark()?'light':'dark'; save(); applyTheme(); }
       else if(act==='carry') openCarry();
       else if(act==='plan'){ ui.ptOff=[]; openPlan(); }
       else if(act==='plan-skip'){ state.planSkip=todayStr(); save(); closeModal(); render(); }
