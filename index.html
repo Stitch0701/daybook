@@ -141,6 +141,7 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
 .prog .bar{height:8px}
 .prog .txt2{font-size:13px;color:var(--muted);white-space:nowrap}
 .streak{font-size:12px;color:var(--accent);margin:-6px 0 10px}
+[hidden]{display:none!important}
 </style>
 </head>
 <body>
@@ -154,6 +155,7 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
         <button class="link" data-act="today" id="todayBtn">Today</button>
       </div>
       <div style="display:flex;gap:2px">
+        <button class="icon-btn" id="syncBtn" data-act="sync" hidden></button>
         <button class="icon-btn" data-act="search" aria-label="Search" title="Search (press /)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></button>
         <button class="icon-btn" id="themeBtn" data-act="theme"></button>
         <button class="icon-btn" data-act="settings" aria-label="Settings">⚙</button>
@@ -206,6 +208,7 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
 
   // ---------- state ----------
   var loadProblem = false;
+  var stampCache = {};
   var state = load();
   function load(){
     var s = null, raw = null;
@@ -221,10 +224,40 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
     s.planned = s.planned || {};
     s.planSkip = s.planSkip || '';
     if(s.eveningHour==null) s.eveningHour = 20;
+    s.tombs = s.tombs || {};
+    initStamps(s);
     s.theme = s.theme || '';
     return s;
   }
-  function persist(){ try { localStorage.setItem(KEY, JSON.stringify(state)); } catch(e){} }
+  // ---- change tracking: every item/template/day-plan carries `u` (last changed). Deletions leave a tombstone.
+  function stripU(o){ var c=Object.assign({},o); delete c.u; return JSON.stringify(c); }
+  function initStamps(st){
+    stampCache={};
+    (st.items||[]).forEach(function(it){ if(!it.u) it.u=1; stampCache['i:'+it.id]=stripU(it); });
+    (st.recurring||[]).forEach(function(r){ if(!r.u) r.u=1; stampCache['c:'+r.id]=stripU(r); });
+    Object.keys(st.wdays||{}).forEach(function(k){ var v=st.wdays[k]; if(v&&typeof v==='object'){ if(!v.u) v.u=1; stampCache['w:'+k]=stripU(v); } });
+    Object.keys(st.reviews||{}).forEach(function(k){ var v=st.reviews[k]; if(v&&typeof v==='object'){ if(!v.u) v.u=1; stampCache['r:'+k]=stripU(v); } });
+    if(st.plans){ if(!st.plans.u) st.plans.u=1; stampCache['p']=stripU(st.plans); }
+  }
+  function stampChanges(){
+    var now=Date.now(), seen={}; state.tombs=state.tombs||{};
+    var chk=function(k,o){ seen[k]=1; var j=stripU(o); if(stampCache[k]!==j){ o.u=now; stampCache[k]=j; } };
+    state.items.forEach(function(it){ chk('i:'+it.id,it); });
+    state.recurring.forEach(function(r){ chk('c:'+r.id,r); });
+    Object.keys(state.wdays).forEach(function(k){ if(state.wdays[k]&&typeof state.wdays[k]==='object') chk('w:'+k,state.wdays[k]); });
+    Object.keys(state.reviews).forEach(function(k){ if(state.reviews[k]&&typeof state.reviews[k]==='object') chk('r:'+k,state.reviews[k]); });
+    if(state.plans) chk('p',state.plans);
+    Object.keys(stampCache).forEach(function(k){ if(!seen[k]){ delete stampCache[k]; if(k.charAt(0)==='i'||k.charAt(0)==='c') state.tombs[k]=now; } });
+    var cutoff=now-90*86400000; Object.keys(state.tombs).forEach(function(k){ if(state.tombs[k]<cutoff) delete state.tombs[k]; });
+  }
+  // after a whole-state replace (restore/snapshot), anything that vanished must not come back from the cloud
+  function tombstoneMissing(old){
+    var now=Date.now(), have={};
+    state.items.forEach(function(i){ have['i:'+i.id]=1; }); state.recurring.forEach(function(r){ have['c:'+r.id]=1; });
+    (old.items||[]).forEach(function(i){ if(!have['i:'+i.id]) state.tombs['i:'+i.id]=now; });
+    (old.recurring||[]).forEach(function(r){ if(!have['c:'+r.id]) state.tombs['c:'+r.id]=now; });
+  }
+  function persist(){ try { stampChanges(); localStorage.setItem(KEY, JSON.stringify(state)); } catch(e){} }
   function save(){ persist(); scheduleBackup(); }
 
   // ---------- dates ----------
@@ -275,7 +308,7 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
       if(!matches(r,date)) return;
       var has = state.items.some(function(i){return i.rid===r.id && i.date===date;});
       if(has) return;
-      state.items.push({id:uid(),scope:r.scope,sec:r.sec,text:r.text,date:date,time:r.time,remind:r.remind,pri:r.pri||'',subs:(r.subs||[]).map(function(x){return {id:uid(),text:x,done:false};}),done:false,rid:r.id,
+      state.items.push({id:'r'+r.id+'-'+date,scope:r.scope,sec:r.sec,text:r.text,date:date,time:r.time,remind:r.remind,pri:r.pri||'',subs:(r.subs||[]).map(function(x,n){return {id:'s'+n,text:x,done:false};}),done:false,rid:r.id,
         handled: date<todayStr()});
       changed=true;
     });
@@ -398,6 +431,7 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
 
   // ---------- rendering ----------
   function render(){
+    setSync();
     ensureRecurring(ui.date);
     var t=todayStr();
     document.getElementById('dateTitle').innerHTML =
@@ -629,14 +663,15 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
 
   // ---------- modals ----------
   function openModal(html){ document.getElementById('modalRoot').innerHTML='<div class="modal" data-modal-bg="1"><div class="sheet">'+html+'</div></div>'; }
-  function closeModal(){ document.getElementById('modalRoot').innerHTML=''; }
+  function closeModal(){ document.getElementById('modalRoot').innerHTML=''; if(legacyOverride){ legacyOverride=null; legacyInfo=computeLegacy(); } }
   function optionsHtml(list,sel){ return list.map(function(o){return '<option value="'+o[0]+'"'+(String(sel==null?'':sel)===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join(''); }
 
 
 
   // ---------- recover from the old Daybook ----------
   var legacyInfo = computeLegacy();
-  function legacyData(){ try { var raw=localStorage.getItem('daybook-data'); return raw?JSON.parse(raw):null; } catch(e){ return null; } }
+  var legacyOverride = null;   // data read from the old Google Sheet, held in memory only
+  function legacyData(){ if(legacyOverride) return legacyOverride; try { var raw=localStorage.getItem('daybook-data'); return raw?JSON.parse(raw):null; } catch(e){ return null; } }
   function computeLegacy(){
     var d=legacyData(); if(!d) return null;
     var by={}, n=0, top=0;
@@ -680,7 +715,7 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
     var keep={}; keepDays.forEach(function(x){ keep[x]=1; });
     var isDay=function(k){ return /^\d{4}-\d{2}-\d{2}$/.test(k); };
     var d=legacyData();
-    if(d){
+    if(d && !legacyOverride){
       d.entries=(d.entries||[]).filter(function(e){ return !(e&&e.date) || keep[e.date]; });
       ['meals','journal','health','journalFiles'].forEach(function(f){
         if(d[f]&&typeof d[f]==='object') Object.keys(d[f]).forEach(function(k){ if(isDay(k)&&!keep[k]) delete d[f][k]; });
@@ -701,10 +736,45 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
         return '<label class="carry-row"><input type="checkbox" name="day" value="'+x+'"'+(sel.indexOf(x)>=0?' checked':'')+'><span><div>'+esc(longDate(x))+(x===yest?' <span class="chip t">Yesterday</span>':x===t?' <span class="chip t">Today</span>':'')+'</div><div class="sub">'+v.n+(v.n===1?' entry':' entries')+(v.open?' · '+v.open+' unfinished':'')+'</div></span></label>';
       }).join('')+
       (legacyInfo.top?'<label class="carry-row"><input type="checkbox" name="top" checked><span><div>Unfinished priority tasks</div><div class="sub">'+legacyInfo.top+' item'+(legacyInfo.top===1?'':'s')+' · added to today as High priority</div></span></label>':'')+
-      '<label class="carry-row" style="margin-top:8px"><input type="checkbox" name="trim" checked><span><div>Delete the days I leave unticked</div><div class="sub">Permanently removes them from the old Daybook data on this device. This cannot be undone.</div></span></label>'+
+      (legacyOverride?'':'<label class="carry-row" style="margin-top:8px"><input type="checkbox" name="trim" checked><span><div>Delete the days I leave unticked</div><div class="sub">Permanently removes them from the old Daybook data on this device. This cannot be undone.</div></span></label>')+
       '<div class="actions"><button class="btn" type="submit">Bring in selected</button><button class="btn ghost" type="button" data-close="1">Cancel</button>'+
-      '<span class="sp"></span><button class="link" type="button" data-act="legacy-download">Download all first</button></div></form>');
+      '<span class="sp"></span>'+(legacyOverride?'':'<button class="link" type="button" data-act="legacy-download">Download all first</button>')+'</div></form>');
   }
+  var SHEETS_SCOPE = 'https://www.googleapis.com/auth/spreadsheets.readonly https://www.googleapis.com/auth/drive.file';
+  function recoverFromSheet(){
+    driveRun('Opening Google',function(){
+      return new Promise(function(res,rej){ loadGis(function(e){ e?rej(e):res(); }); }).then(function(){
+        return new Promise(function(res,rej){
+          google.accounts.oauth2.initTokenClient({client_id:GOOGLE_CLIENT_ID,scope:SHEETS_SCOPE,
+            callback:function(r){ r.error?rej(new Error(r.error)):res(r.access_token); },
+            error_callback:function(e){ rej(new Error((e&&e.type)||'sign-in cancelled')); }}).requestAccessToken({prompt:''});
+        });
+      }).then(function(tok){
+        var H={Authorization:'Bearer '+tok};
+        var getVals=function(id){
+          return fetch('https://sheets.googleapis.com/v4/spreadsheets/'+id+'/values:batchGet?ranges=Entries&ranges=TopTasks&ranges=Meals',{headers:H})
+            .then(function(r){ if(!r.ok) throw new Error('sheet'); return r.json(); });
+        };
+        var search=function(){
+          var q=encodeURIComponent("name='Daybook Data' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false");
+          return fetch('https://www.googleapis.com/drive/v3/files?q='+q+'&fields=files(id,modifiedTime)&orderBy=modifiedTime desc',{headers:H}).then(function(r){return r.json();})
+            .then(function(j){ var f=j.files&&j.files[0]; if(!f) throw new Error('No “Daybook Data” sheet was found for this Google account. Try the other account or device.'); return getVals(f.id); });
+        };
+        var saved=null; try{ saved=localStorage.getItem('daybook-sheet-id'); }catch(e){}
+        return (saved?getVals(saved).catch(search):search());
+      }).then(function(j){
+        var rows=function(i){ var v=j.valueRanges&&j.valueRanges[i]&&j.valueRanges[i].values; return (v||[]).slice(1); };
+        var data={entries:[],topTasks:[],meals:{},journal:{}};
+        rows(0).forEach(function(r){ if(r[0]&&r[1]&&r[4]) data.entries.push({id:r[0],date:r[1],time:r[2]||null,type:r[3]||'task',title:r[4],category:r[5]||'work',done:r[6]==='TRUE'}); });
+        rows(1).forEach(function(r){ if(r[0]&&r[1]) data.topTasks.push({id:r[0],title:r[1],category:r[2]||'work',done:r[5]==='TRUE'}); });
+        rows(2).forEach(function(r){ if(r[0]&&r[2]){ (data.meals[r[0]]=data.meals[r[0]]||[]).push({id:r[1],name:r[2],calories:parseInt(r[3],10)||0}); } });
+        legacyOverride=data; legacyInfo=computeLegacy();
+        if(!legacyInfo){ legacyOverride=null; legacyInfo=computeLegacy(); throw new Error('The old sheet was found but it has no entries.'); }
+        closeModal0(); openLegacy(); return 'Found '+legacyInfo.count+' entries in your Google Sheet';
+      });
+    });
+  }
+  function closeModal0(){ document.getElementById('modalRoot').innerHTML=''; }
   function legacyBanner(){
     if(!legacyInfo || (state.legacy && (state.legacy.imported||state.legacy.dismissed))) return '';
     return '<div class="banner" style="background:var(--accent-soft)"><span><b style="color:var(--accent)">Found your old Daybook data</b> · '+legacyInfo.count+' entries across '+legacyInfo.days+' days ('+esc(shortDate(legacyInfo.first))+' to '+esc(shortDate(legacyInfo.last))+'). Choose what to bring into Pebble.</span>'+
@@ -735,7 +805,7 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
     if(!confirm('Replace what is on this device with the snapshot from '+longDate(date)+'? Your current data is kept as a safety copy first.')) return;
     try { localStorage.setItem('daybook2-before-restore', JSON.stringify(state)); } catch(e){}
     var data=JSON.parse(raw), keep=state.drive; delete data.drive;
-    localStorage.setItem(KEY,JSON.stringify(data)); state=load(); state.drive=keep||{}; persist(); applyTheme(); closeModal(); render(); toast('Restored the snapshot from '+shortDate(date));
+    var oldSt=state; localStorage.setItem(KEY,JSON.stringify(data)); state=load(); state.drive=keep||{}; tombstoneMissing(oldSt); persist(); applyTheme(); closeModal(); render(); toast('Restored the snapshot from '+shortDate(date));
   }
 
   // ---------- friendliness: welcome, backup nudge, quick add ----------
@@ -929,43 +999,114 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
   }
   function backupPayload(){ var c=Object.assign({},state); delete c.drive; return JSON.stringify(c); }
 
-  function backupNow(interactive){
+  function stable(o){
+    if(Array.isArray(o)) return '['+o.map(stable).join(',')+']';
+    if(o && typeof o==='object') return '{'+Object.keys(o).filter(function(k){return o[k]!==undefined;}).sort().map(function(k){return JSON.stringify(k)+':'+stable(o[k]);}).join(',')+'}';
+    return JSON.stringify(o);
+  }
+  function canon(s){
+    var by=function(a){ return (a||[]).slice().sort(function(x,y){return x.id<y.id?-1:x.id>y.id?1:0;}); };
+    return stable({i:by(s.items),c:by(s.recurring),w:s.wdays||{},r:s.reviews||{},p:s.plans||{},pl:s.planned||{},t:s.tombs||{}});
+  }
+  // Last change wins per item; a deletion beats an older edit, a newer edit beats an older deletion.
+  function mergeRemote(R){
+    var before=canon(state);
+    var tombs=Object.assign({},state.tombs||{});
+    Object.keys(R.tombs||{}).forEach(function(k){ tombs[k]=Math.max(tombs[k]||0,R.tombs[k]); });
+    var mergeList=function(prefix,la,ra){
+      var map={}; (la||[]).forEach(function(x){ map[x.id]=x; });
+      (ra||[]).forEach(function(x){ var m=map[x.id]; if(!m || (x.u||0)>(m.u||0)) map[x.id]=x; });
+      return Object.keys(map).map(function(id){return map[id];}).filter(function(x){ var t=tombs[prefix+x.id]; return !(t && t>(x.u||0)); });
+    };
+    var mergeMap=function(la,ra){
+      var out=Object.assign({},la);
+      Object.keys(ra||{}).forEach(function(k){ if(!out[k] || ((ra[k]&&ra[k].u)||0)>((out[k]&&out[k].u)||0)) out[k]=ra[k]; });
+      return out;
+    };
+    state.items=mergeList('i:',state.items,R.items);
+    state.recurring=mergeList('c:',state.recurring,R.recurring);
+    state.wdays=mergeMap(state.wdays,R.wdays);
+    state.reviews=mergeMap(state.reviews,R.reviews);
+    if(R.plans && (R.plans.u||0)>(state.plans.u||0)) state.plans=R.plans;
+    state.planned=Object.assign({},state.planned,R.planned||{});
+    state.tombs=tombs;
+    initStamps(state);
+    return canon(state)!==before;
+  }
+  function uploadState(fileId,interactive){
+    if(fileId) return gfetch('https://www.googleapis.com/upload/drive/v3/files/'+fileId+'?uploadType=media&fields=id,modifiedTime',{method:'PATCH',headers:{'Content-Type':'application/json'},body:backupPayload()},interactive).then(function(r){return r.json();});
+    var b='daybookboundary'+Date.now();
+    var body='--'+b+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+JSON.stringify({name:DRIVE_FILE,mimeType:'application/json'})+
+      '\r\n--'+b+'\r\nContent-Type: application/json\r\n\r\n'+backupPayload()+'\r\n--'+b+'--';
+    return gfetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,modifiedTime',
+      {method:'POST',headers:{'Content-Type':'multipart/related; boundary='+b},body:body},interactive).then(function(r){return r.json();}).then(function(j){ drv().fileId=j.id; return j; });
+  }
+  var syncing=false, syncState='off';
+  function setSync(st){
+    if(st) syncState=st;
+    var b=document.getElementById('syncBtn'); if(!b) return;
+    var on=!!(state.drive && state.drive.connected);
+    b.hidden=!on; if(!on) return;
+    var last=state.drive.lastBackup?' · last '+new Date(state.drive.lastBackup).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}):'';
+    b.textContent = syncState==='syncing'?'⟳':(syncState==='ok'?'☁':'⚠');
+    b.title = syncState==='ok'?'Synced'+last : syncState==='syncing'?'Syncing…' : syncState==='auth'?'Tap to reconnect Google and sync' : 'Sync problem. Tap to retry';
+    b.setAttribute('aria-label',b.title); b.style.color=(syncState==='auth'||syncState==='err')?'var(--warn)':'';
+  }
+  // Pull what the other device saved, merge it with this device, then push the combined result.
+  function syncNow(interactive){
+    if(syncing) return Promise.resolve(false);
+    syncing=true; setSync('syncing');
+    var fileId=null, remoteCanon=null;
     return findBackup(interactive).then(function(f){
-      var body, url, method;
-      if(f){
-        drv().fileId=f.id; method='PATCH'; url='https://www.googleapis.com/upload/drive/v3/files/'+f.id+'?uploadType=media&fields=id,modifiedTime';
-        return gfetch(url,{method:method,headers:{'Content-Type':'application/json'},body:backupPayload()},interactive);
-      }
-      var b='daybookboundary'+Date.now();
-      body='--'+b+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+JSON.stringify({name:DRIVE_FILE,mimeType:'application/json'})+
-        '\r\n--'+b+'\r\nContent-Type: application/json\r\n\r\n'+backupPayload()+'\r\n--'+b+'--';
-      return gfetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,modifiedTime',
-        {method:'POST',headers:{'Content-Type':'multipart/related; boundary='+b},body:body},interactive);
-    }).then(function(r){return r.json();}).then(function(j){
-      var d=drv(); d.fileId=j.id; d.lastBackup=new Date().toISOString(); d.synced=true; persist();
+      if(!f) return;
+      fileId=f.id; drv().fileId=f.id;
+      return gfetch('https://www.googleapis.com/drive/v3/files/'+f.id+'?alt=media',{},interactive).then(function(r){return r.text();}).then(function(txt){
+        var R=null; try{ R=JSON.parse(txt); }catch(e){}
+        if(R && Array.isArray(R.items)){
+          remoteCanon=canon(R);
+          if(mergeRemote(R)){
+            persist();
+            var ae=document.activeElement;
+            if(ae && /^(input|textarea|select)$/i.test(ae.tagName)) toast('Updated from your other device'); else render();
+          }
+        }
+      });
+    }).then(function(){
+      if(fileId && remoteCanon===canon(state)) return;
+      return uploadState(fileId,interactive);
+    }).then(function(){
+      drv().lastBackup=new Date().toISOString(); persist(); syncing=false; setSync('ok'); return true;
+    },function(e){
+      syncing=false; setSync(/expired|reconnect|sign-in|popup|interaction|denied|consent|closed|cancel/i.test(e.message)?'auth':'err'); throw e;
     });
   }
+  var syncTimer=null;
   function scheduleBackup(){
     var d=state.drive;
-    if(!d || !d.connected || d.auto===false || !d.synced || !tokenValid()) return;
-    clearTimeout(driveTimer);
-    driveTimer=setTimeout(function(){ backupNow(false).catch(function(){}); },15000);
+    if(!d || !d.connected || d.auto===false || !tokenValid()) return;
+    clearTimeout(syncTimer);
+    syncTimer=setTimeout(function(){ syncNow(false).catch(function(){}); },6000);
+  }
+  function syncIfConnected(){
+    var d=state.drive; if(!d || !d.connected || d.auto===false) return;
+    getToken(false).then(function(){ return syncNow(false); }).catch(function(){ setSync('auth'); });
   }
 
   function driveHtml(){
-    var d=drv(), h='<div class="field"><label>Google Drive backup</label>';
+    var d=drv(), h='<div class="field"><label>Sync &amp; backup with Google Drive</label>';
     if(!d.connected){
       return h+'<button class="btn ghost" data-act="drive-connect">Connect Google Drive</button>'+
-        '<div class="sub" style="margin-top:4px">Saves one file, <code>'+DRIVE_FILE+'</code>, to your Drive. Pebble can only see files it creates itself.</div></div>';
+        '<div class="sub" style="margin-top:4px">Keeps your iPad, iPhone and computer in step. Sign in with the <b>same Google account</b> on each. Changes merge automatically, and Pebble can only see its own file, <code>'+DRIVE_FILE+'</code>.</div></div>';
     }
-    h+='<div class="sub" style="margin-bottom:6px">'+(tokenValid()?'Connected':'Signed out. Tap Reconnect to continue.')+
-      (d.lastBackup?' · Last backup '+esc(new Date(d.lastBackup).toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})):' · No backup yet')+'</div>'+
+    h+='<div class="sub" style="margin-bottom:6px">'+(tokenValid()?'Signed in':'Signed out. Tap Reconnect to keep syncing.')+
+      (d.lastBackup?' · Last synced '+esc(new Date(d.lastBackup).toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})):' · Not synced yet')+'</div>'+
       '<div class="actions" style="margin-top:0">'+
       (tokenValid()?'':'<button class="btn" data-act="drive-connect">Reconnect</button>')+
-      '<button class="btn ghost" data-act="drive-backup">Back up now</button>'+
-      '<button class="btn ghost" data-act="drive-restore">Restore</button>'+
+      '<button class="btn ghost" data-act="drive-backup">Sync now</button>'+
+      '<button class="btn ghost" data-act="drive-restore">Replace this device</button>'+
       '<button class="btn danger" data-act="drive-disconnect">Disconnect</button></div>'+
-      '<label class="sub" style="display:flex;gap:6px;margin-top:8px;align-items:center"><input type="checkbox" id="driveAuto"'+(d.auto===false?'':' checked')+'> Back up automatically while Pebble is open and signed in</label></div>';
+      '<label class="sub" style="display:flex;gap:6px;margin-top:8px;align-items:center"><input type="checkbox" id="driveAuto"'+(d.auto===false?'':' checked')+'> Sync automatically while Pebble is open</label>'+
+      '<div class="sub" style="margin-top:4px"><b>Replace this device</b> discards what is here and loads the Drive copy. Normal syncing never loses anything.</div></div>';
     return h;
   }
   function driveRun(label,fn){
@@ -977,17 +1118,12 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
     driveRun('Connecting',function(){
       return getToken(true).then(function(){
         var d=drv(); d.connected=true; if(d.auto==null) d.auto=true; persist();
-        return findBackup(true).then(function(f){
-          if(f){ d.fileId=f.id; if(!d.lastBackup) d.synced=false; persist(); return d.synced===false ? 'Connected. A backup already exists: choose Restore to load it, or Back up now to overwrite it.' : 'Connected'; }
-          d.synced=true; persist(); return backupNow(true).then(function(){ return 'Connected and backed up'; });
-        });
+        return syncNow(true).then(function(){ return 'Connected. Your devices will now stay in step.'; });
       });
     });
   }
-  function driveBackupClick(){
-    var d=drv();
-    if(d.synced===false && !confirm('A backup already exists in your Google Drive. Overwrite it with the data on this device?')) return;
-    driveRun('Backing up',function(){ return backupNow(true).then(function(){ return 'Backed up to Google Drive'; }); });
+  function driveSyncClick(){
+    driveRun('Syncing',function(){ return syncNow(true).then(function(){ return 'Synced'; }); });
   }
   function driveRestoreClick(){
     driveRun('Looking for backup',function(){
@@ -998,7 +1134,7 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
           var when=f.modifiedTime?new Date(f.modifiedTime).toLocaleString():'unknown time';
           if(!confirm('Replace the data on this device with the Drive backup from '+when+' ('+data.items.length+' items)? Export first if unsure.')) return 'Restore cancelled';
           var keep=state.drive; delete data.drive;
-          localStorage.setItem(KEY,JSON.stringify(data)); state=load(); state.drive=keep; state.drive.fileId=f.id; state.drive.synced=true; persist();
+          var oldSt=state; localStorage.setItem(KEY,JSON.stringify(data)); state=load(); state.drive=keep; state.drive.fileId=f.id; tombstoneMissing(oldSt); persist();
           applyTheme(); render(); return 'Restored from Google Drive';
         });
       });
@@ -1008,7 +1144,7 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
     if(!confirm('Disconnect Google Drive? The backup file stays in your Drive.')) return;
     var tok=driveToken; driveToken=null; driveExpiry=0; clearTimeout(driveTimer);
     try { if(tok && window.google && google.accounts) google.accounts.oauth2.revoke(tok,function(){}); } catch(e){}
-    state.drive={}; persist(); openSettings();
+    state.drive={}; persist(); setSync('off'); openSettings();
   }
 
   function safetyHtml(){
@@ -1017,7 +1153,8 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
       h+='<div class="sub" style="margin-bottom:6px">Found '+legacyInfo.count+' entries from the old design ('+esc(shortDate(legacyInfo.first))+' to '+esc(shortDate(legacyInfo.last))+').'+(state.legacy&&state.legacy.imported?' Already imported once; importing again only adds anything missing.':'')+'</div>'+
         '<div class="actions" style="margin-top:0"><button class="btn ghost" data-act="legacy-import">Choose days to bring in</button><button class="btn ghost" data-act="legacy-download">Download as file</button></div>'+
         '<div class="sub" style="margin-top:4px">Tasks, meetings and meals are imported. Journal, health and library stay in the old data file.</div></div>';
-    } else h+='<div class="sub">No old Daybook data found in this browser.</div></div>';
+    } else h+='<div class="sub">No old Daybook data found in this browser or app. If you used the old design on another device (such as your iPad), open Pebble there. If you used the old <b>Sync</b> button, you can recover from your Google Sheet.</div></div>';
+    h+='<div class="field"><button class="btn ghost" data-act="sheet-recover">Recover from my old Google Sheet</button><div class="sub" style="margin-top:4px">Reads the sheet called “Daybook Data” that the old Sync button created. Read-only.</div></div>';
     var snaps=listSnaps();
     h+='<div class="field"><label>Automatic daily snapshots</label>';
     if(snaps.length) h+=snaps.map(function(x){return '<div class="actions" style="margin:2px 0;align-items:center"><span class="sub sp">'+esc(shortDate(x.date))+' · '+x.count+' items</span><button class="btn ghost" data-act="snap-restore" data-snap="'+x.date+'">Restore</button></div>';}).join('')+
@@ -1125,6 +1262,7 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
       }
       else if(act==='quickadd') openQuickAdd();
       else if(act==='legacy-import') openLegacy();
+      else if(act==='sheet-recover') recoverFromSheet();
       else if(act==='legacy-skip'){ state.legacy=Object.assign(state.legacy||{},{dismissed:true}); persist(); render(); }
       else if(act==='legacy-download'){ var rawOld=null; try{ rawOld=localStorage.getItem('daybook-data'); }catch(e){} if(rawOld) download('old-daybook-data-'+todayStr()+'.json','application/json',rawOld); else toast('No old data found'); }
       else if(act==='nudge-later'){ state.nudgeUntil=addDays(todayStr(),14); persist(); render(); }
@@ -1161,7 +1299,8 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
         if(window.Notification) Notification.requestPermission().then(openSettings); else toast('Notifications not supported here');
       }
       else if(act==='drive-connect') driveConnect();
-      else if(act==='drive-backup') driveBackupClick();
+      else if(act==='drive-backup') driveSyncClick();
+      else if(act==='sync'){ if(tokenValid()) driveSyncClick(); else { driveRun('Reconnecting',function(){ return getToken(true).then(function(){ return syncNow(true); }).then(function(){ return 'Synced'; }); }); } }
       else if(act==='drive-restore') driveRestoreClick();
       else if(act==='drive-disconnect') driveDisconnect();
       else if(act==='backup'){ state.lastExport=todayStr(); persist(); download('pebble-backup-'+todayStr()+'.json','application/json',JSON.stringify(state,null,2)); }
@@ -1212,7 +1351,7 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
         try {
           var d=JSON.parse(r.result);
           if(!d||!Array.isArray(d.items)) throw 0;
-          var keepDrive=state.drive; delete d.drive; localStorage.setItem(KEY,JSON.stringify(d)); state=load(); state.drive=keepDrive||{}; persist(); applyTheme(); closeModal(); render(); toast('Imported');
+          var keepDrive=state.drive, oldSt=state; delete d.drive; localStorage.setItem(KEY,JSON.stringify(d)); state=load(); state.drive=keepDrive||{}; tombstoneMissing(oldSt); persist(); applyTheme(); closeModal(); render(); toast('Imported');
         } catch(err){ toast('That file is not a Pebble backup'); }
       };
       r.readAsText(t.files[0]);
@@ -1289,7 +1428,7 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
       save(); closeModal(); ui.date=t; ui.followToday=true; render(); toast(ids.length?'Carried to today':'Left behind'); return;
     }
     if(f.id==='legacyForm'){
-      var lf=new FormData(f), chosen=lf.getAll('day'), wantTop=lf.has('top'), wantTrim=lf.has('trim');
+      var lf=new FormData(f), chosen=lf.getAll('day'), wantTop=lf.has('top'), wantTrim=lf.has('trim') && !legacyOverride;
       var all=Object.keys(legacyInfo.by), dropped=all.filter(function(x){return chosen.indexOf(x)<0;});
       if(!chosen.length && !wantTop){ toast('Tick at least one day'); return; }
       if(wantTrim && dropped.length && !confirm('Permanently delete '+dropped.length+' unticked day'+(dropped.length===1?'':'s')+' from the old Daybook data on this device? This cannot be undone.')) return;
@@ -1349,7 +1488,7 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
   }
   var lastMinute=new Date().getMinutes();
   setInterval(tick,20000);
-  document.addEventListener('visibilitychange',function(){ if(!document.hidden) tick(); });
+  document.addEventListener('visibilitychange',function(){ if(!document.hidden){ tick(); syncIfConnected(); } });
 
   // ---------- boot ----------
   applyTheme();
@@ -1358,7 +1497,9 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
   tick();
   if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function(){});
   if(loadProblem) toast('Saved data could not be read. A copy was kept. See Settings → snapshots.');
-  if(state.drive && state.drive.connected) getToken(false).catch(function(){});
+  setSync(state.drive&&state.drive.connected?'auth':'off');
+  syncIfConnected();
+  setInterval(function(){ if(!document.hidden && tokenValid()) syncIfConnected(); },60000);
   if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function(){});
 })();
 </script>
