@@ -31,7 +31,7 @@ body{background:var(--bg);color:var(--text);font:15px/1.45 -apple-system,BlinkMa
   padding-bottom:env(safe-area-inset-bottom)}
 button,input,select,textarea{font:inherit;color:inherit}
 button{cursor:pointer}
-.wrap{max-width:720px;margin:0 auto;padding:0 16px 80px}
+.wrap{max-width:720px;margin:0 auto;padding:0 16px 110px}
 header{position:sticky;top:0;z-index:5;background:var(--bg);padding:calc(12px + env(safe-area-inset-top)) 0 0;border-bottom:1px solid var(--line)}
 .top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
 .date-nav{display:flex;align-items:center;gap:4px}
@@ -54,7 +54,7 @@ section.card{background:var(--surface);border:1px solid var(--line);border-radiu
 section.card h2{margin:0 0 6px;font-size:13px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between;align-items:center}
 .row{display:flex;align-items:flex-start;gap:10px;padding:7px 0;border-top:1px solid var(--line)}
 .row:first-of-type{border-top:0}
-.row input[type=checkbox]{margin-top:3px;width:17px;height:17px;accent-color:var(--accent);flex:none}
+.row input[type=checkbox]{margin-top:1px;width:24px;height:24px;accent-color:var(--accent);flex:none;cursor:pointer}
 .row .body{flex:1;min-width:0;cursor:pointer}
 .row.done .txt{text-decoration:line-through;color:var(--muted)}
 .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:2px}
@@ -93,13 +93,13 @@ ol.steps{padding-left:18px;margin:6px 0}
 code{background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:0 4px;font-size:13px}
 .carry-row{display:flex;gap:10px;padding:6px 0;border-top:1px solid var(--line);align-items:flex-start}
 .field label.carry-row,label.carry-row{display:flex;font-size:inherit;color:var(--text);margin:0}
-.carry-row input{margin-top:4px;flex:none}
+.carry-row input{margin-top:2px;width:22px;height:22px;flex:none}
 #ptAdd select{width:auto}
 .chip.pri-high{color:var(--danger);border-color:var(--danger)}
 .chip.pri-med{color:var(--warn);border-color:var(--warn)}
 .subs{margin-top:4px}
 .sub-row{display:flex;gap:8px;align-items:center;padding:2px 0;font-size:14px;color:var(--muted);cursor:pointer}
-.sub-row input{width:15px;height:15px;accent-color:var(--accent)}
+.sub-row input{width:20px;height:20px;accent-color:var(--accent)}
 .sub-row.done span{text-decoration:line-through}
 .bar{height:6px;background:var(--line);border-radius:3px;overflow:hidden;flex:1}
 .bar>i{display:block;height:100%;background:var(--accent)}
@@ -136,6 +136,11 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
 .agenda-h{font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:10px 0 2px}
 .welcome ul{margin:6px 0 10px;padding-left:18px}
 .welcome li{margin:3px 0}
+.chip.late{color:var(--danger);border-color:var(--danger)}
+.prog{display:flex;align-items:center;gap:10px;flex:1;min-width:0}
+.prog .bar{height:8px}
+.prog .txt2{font-size:13px;color:var(--muted);white-space:nowrap}
+.streak{font-size:12px;color:var(--accent);margin:-6px 0 10px}
 </style>
 </head>
 <body>
@@ -293,6 +298,27 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
     if(it.time) d.setMinutes(d.getMinutes()-(+it.remind||0));
     return d;
   }
+  function showNotice(body){
+    try {
+      if(!(window.Notification && Notification.permission==='granted')) return;
+      if(navigator.serviceWorker && navigator.serviceWorker.ready){
+        navigator.serviceWorker.ready.then(function(reg){ return reg.showNotification('Pebble',{body:body,tag:'pebble-'+body.slice(0,40),icon:'icon-192.png',badge:'icon-192.png'}); })
+          .catch(function(){ try{ new Notification('Pebble',{body:body}); }catch(e){} });
+      } else new Notification('Pebble',{body:body});
+    } catch(e){}
+  }
+  // First time you set a reminder (a tap), ask for permission so alerts can work.
+  function askNotifyOnce(){
+    if(state.askedNotif || !window.Notification || Notification.permission!=='default') return;
+    state.askedNotif=true; persist();
+    try { Notification.requestPermission(); } catch(e){}
+  }
+  function calendarHint(it){
+    if(!it || !it.date || !it.time || it.remind==null || it.remind==='') return;
+    var n=state.calHints||0; if(n>=3) return;
+    state.calHints=n+1; persist();
+    toast('Reminder set. To be alerted even when Pebble is closed, add it to your Calendar.','Add',function(){ exportIcs([it],'pebble-item.ics'); });
+  }
   function checkReminders(){
     var now=new Date(), changed=false;
     live().forEach(function(it){
@@ -303,7 +329,7 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
         state.fired[key]=Date.now(); changed=true;
         var msg=(it.time?fmtTime(it.time)+' · ':'')+it.text;
         toast('🔔 '+msg);
-        try { if(window.Notification && Notification.permission==='granted') new Notification('Pebble',{body:msg}); } catch(e){}
+        showNotice(msg);
       }
     });
     var cutoff=Date.now()-3*86400000;
@@ -410,6 +436,7 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
     if(it.time) chips+='<span class="chip t">'+fmtTime(it.time)+'</span>';
     if(it.remind!=null && it.remind!=='') chips+='<span class="chip">🔔 '+esc(remindLabel(it))+'</span>';
     if(it.rid) chips+='<span class="chip">↻</span>';
+    if(!it.done && it.date && it.time){ var due=parseYmd(it.date), tp=it.time.split(':'); due.setHours(+tp[0],+tp[1],0,0); if(due<new Date()) chips='<span class="chip late">Overdue</span>'+chips; }
     var subs=it.subs||[];
     if(it.pri) chips='<span class="chip pri-'+it.pri+'">⚑ '+(it.pri==='high'?'High':'Medium')+'</span>'+chips;
     if(subs.length) chips+='<span class="chip">'+subs.filter(function(x){return x.done;}).length+'/'+subs.length+' subtasks</span>';
@@ -439,7 +466,7 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
         (persist?'':'<button class="icon-btn more" type="button" data-more="1" aria-label="Time and reminder" title="Time and reminder">⏱</button>')+
         '<button class="btn" type="submit">Add</button>'+
         (persist?'':'<div class="extra"><input type="time" aria-label="Time">'+
-        '<select aria-label="Reminder">'+REMIND.map(function(r){return '<option value="'+r[0]+'">'+r[1]+'</option>';}).join('')+'</select>'+
+        '<select aria-label="Reminder">'+REMIND.map(function(r){return '<option value="'+r[0]+'"'+(r[0]==='0'?' selected':'')+'>'+r[1]+'</option>';}).join('')+'</select>'+
         '<select aria-label="Priority" data-pri="1">'+PRI.map(function(r){return '<option value="'+r[0]+'">'+(r[0]?'⚑ ':'')+r[1]+'</option>';}).join('')+'</select></div>')+
         '</form>';
       return '<section class="card">'+head+list+form+'</section>';
@@ -530,6 +557,12 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
     return h;
   }
 
+  // consecutive days (ending today, or yesterday if nothing is done yet today) with at least one finished item
+  function streakDays(){
+    var doneOn={}; live().forEach(function(i){ if(i.done && i.date && !isPersist(i)) doneOn[i.date]=1; });
+    var d=todayStr(); if(!doneOn[d]) d=addDays(d,-1);
+    var n=0; while(doneOn[d]){ n++; d=addDays(d,-1); } return n;
+  }
   function rangeSeg(){
     return '<span class="seg">'+[['day','Day'],['week','7 days'],['month','Month']].map(function(r){
       return '<button data-range="'+r[0]+'" class="'+(ui.range===r[0]?'on':'')+'">'+r[1]+'</button>';
@@ -568,7 +601,8 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
     var start=ui.date, end=ui.range==='week'?addDays(start,6):start;
     var its=live().filter(function(i){return i.date && i.date>=start && i.date<=end && !isPersist(i);});
     var done=its.filter(function(i){return i.done;}).length;
-    var h='<div class="group-title" style="margin-bottom:12px"><span class="sub">'+its.length+(its.length===1?' item':' items')+' · '+done+' done</span>'+rangeSeg()+'</div>';
+    var h='<div class="group-title" style="margin-bottom:12px;gap:12px"><span class="prog">'+bar(done,its.length)+'<span class="txt2">'+done+' of '+its.length+' done</span></span>'+rangeSeg()+'</div>';
+    var sk=streakDays(); if(sk>=2) h+='<div class="streak">'+sk+'-day streak · you finished something each day</div>';
     ['work','personal','both'].forEach(function(scope){
       var g=its.filter(function(i){return i.scope===scope;}).sort(function(a,b){
         if(a.date!==b.date) return a.date<b.date?-1:1;
@@ -734,7 +768,7 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
       '<div class="field"><label>List</label><select name="sec" id="qaSec">'+qaSecOpts(scope)+'</select></div></div>'+
       '<div id="qaWhen"><div class="grid2"><div class="field"><label>Date</label><input type="date" name="date" value="'+ui.date+'"></div>'+
       '<div class="field"><label>Time</label><input type="time" name="time"></div></div>'+
-      '<div class="grid2"><div class="field"><label>Reminder</label><select name="remind">'+optionsHtml(REMIND,'')+'</select></div>'+
+      '<div class="grid2"><div class="field"><label>Reminder</label><select name="remind">'+optionsHtml(REMIND,'0')+'</select></div>'+
       '<div class="field"><label>Priority</label><select name="pri">'+optionsHtml(PRI,'')+'</select></div></div></div>'+
       '<div class="actions"><button class="btn" type="submit">Add</button><button class="btn ghost" type="button" data-close="1">Cancel</button></div></form>');
     var i=document.querySelector('#qaForm input[name=text]'); if(i) i.focus();
@@ -997,7 +1031,7 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
     openModal('<h3>Settings</h3>'+
       '<div class="field"><label>Theme</label><select id="themeSel">'+optionsHtml([['','Match device'],['light','Light'],['dark','Dark']],state.theme)+'</select></div>'+
       '<div class="field"><label>Evening prompt to plan tomorrow</label><select id="eveSel">'+optionsHtml([['-1','Off'],['18','6 PM'],['19','7 PM'],['20','8 PM'],['21','9 PM'],['22','10 PM']],String(state.eveningHour))+'</select></div>'+
-      '<div class="field"><label>Reminder alerts (while Pebble is open)</label>'+
+      '<div class="field"><label>Reminder alerts</label><div class="sub" style="margin-bottom:6px">Pebble alerts you while it is open or running in the background. A phone can pause web apps that stay closed, so for important times also use <b>Add to Apple Calendar</b>, which alerts even when Pebble is closed.</div>'+
         '<button class="btn ghost" data-act="notif">'+(perm==='granted'?'Enabled':perm==='denied'?'Blocked in browser settings':'Enable notifications')+'</button></div>'+
       '<div class="field"><label>Apple Calendar</label><div class="sub">Use <b>Add to Apple Calendar</b> on the Overview page (whole day) or "Calendar" inside any item. It downloads an .ics file; open it to add the events with their reminders.</div></div>'+
       '<div class="field"><label>Apple Reminders (one-time Shortcut setup)</label>'+
@@ -1199,7 +1233,7 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
       var txt=raw, pri='', bang=txt.match(/\s*(!{1,2})\s*$/);
       if(bang){ pri=bang[1].length>1?'high':'med'; txt=txt.slice(0,bang.index).trim()||txt; }
       var x=extractTime(txt);
-      state.items.push({id:uid(),scope:f.querySelector('select').value,sec:'tasks',text:x.text||txt,date:tomorrowStr(),time:x.time,remind:'',pri:pri,subs:[],done:false});
+      state.items.push({id:uid(),scope:f.querySelector('select').value,sec:'tasks',text:x.text||txt,date:tomorrowStr(),time:x.time,remind:x.time?'0':'',pri:pri,subs:[],done:false});
       save(); openPlan(); render(); var ni=document.querySelector('#ptAdd input'); if(ni) ni.focus(); return;
     }
     if(f.classList.contains('add')){
@@ -1214,8 +1248,10 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
         pri=f.querySelector('select[data-pri]').value||pri;
       }
       var remind=persist?'':f.querySelector('select:not([data-pri])').value;
-      state.items.push({id:uid(),scope:scope,sec:sec,text:text,date:persist?null:ui.date,time:time,remind:remind,pri:pri,subs:[],done:false});
-      save(); render();
+      if(!time && remind==='0') remind='';
+      var newIt={id:uid(),scope:scope,sec:sec,text:text,date:persist?null:ui.date,time:time,remind:remind,pri:pri,subs:[],done:false};
+      state.items.push(newIt);
+      save(); render(); if(remind!==''){ askNotifyOnce(); calendarHint(newIt); }
       var nf=document.querySelector('form.add[data-scope="'+scope+'"][data-sec="'+sec+'"] input[type=text]'); if(nf) nf.focus();
       return;
     }
@@ -1270,8 +1306,10 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
         date=q.get('date')||ui.date; time=q.get('time')||''; remind=q.get('remind')||'';
         if(!time){ var xt=extractTime(text); text=xt.text||text; time=xt.time; }
       }
-      state.items.push({id:uid(),scope:sc,sec:sec,text:text,date:date,time:time,remind:remind,pri:pri,subs:[],done:false});
-      save(); closeModal(); render();
+      if(!time && remind==='0') remind='';
+      var qaIt={id:uid(),scope:sc,sec:sec,text:text,date:date,time:time,remind:remind,pri:pri,subs:[],done:false};
+      state.items.push(qaIt);
+      save(); closeModal(); render(); if(remind!==''){ askNotifyOnce(); calendarHint(qaIt); }
       toast('Added to '+SCOPE_LABEL[sc]+(date&&date!==ui.date?' on '+shortDate(date):'')); return;
     }
     if(f.id==='plansForm'){
@@ -1297,11 +1335,19 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
       lastDue=due; render();
       if(due){
         toast('🌙 Time to plan tomorrow');
-        try { if(window.Notification && Notification.permission==='granted') new Notification('Pebble',{body:'Time to plan tomorrow'}); } catch(e){}
+        showNotice('Time to plan tomorrow');
       }
     }
     checkReminders();
+    // Keep "Overdue" chips and the clock-based banners fresh, but never while you are typing.
+    var m=new Date().getMinutes();
+    if(m!==lastMinute){
+      lastMinute=m;
+      var ae=document.activeElement, typing=ae&&/^(input|textarea|select)$/i.test(ae.tagName);
+      if(!typing && !document.getElementById('modalRoot').firstChild && !document.hidden) render();
+    }
   }
+  var lastMinute=new Date().getMinutes();
   setInterval(tick,20000);
   document.addEventListener('visibilitychange',function(){ if(!document.hidden) tick(); });
 
