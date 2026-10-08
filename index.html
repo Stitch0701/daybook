@@ -91,6 +91,9 @@ form.add.open .more{background:var(--accent-soft);color:var(--text)}
 ol.steps{padding-left:18px;margin:6px 0}
 code{background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:0 4px;font-size:13px}
 .carry-row{display:flex;gap:10px;padding:6px 0;border-top:1px solid var(--line);align-items:flex-start}
+.field label.carry-row,label.carry-row{display:flex;font-size:inherit;color:var(--text);margin:0}
+.carry-row input{margin-top:4px;flex:none}
+#ptAdd select{width:auto}
 .chip.pri-high{color:var(--danger);border-color:var(--danger)}
 .chip.pri-med{color:var(--warn);border-color:var(--warn)}
 .subs{margin-top:4px}
@@ -179,6 +182,9 @@ textarea.rev{min-height:64px;resize:vertical}
     s.wdays = s.wdays || {};
     s.fired = s.fired || {};
     s.reviews = s.reviews || {};
+    s.planned = s.planned || {};
+    s.planSkip = s.planSkip || '';
+    if(s.eveningHour==null) s.eveningHour = 20;
     s.theme = s.theme || '';
     return s;
   }
@@ -337,8 +343,21 @@ textarea.rev{min-height:64px;resize:vertical}
     document.getElementById('tabs').innerHTML = TABS.map(function(x){
       return '<button class="tab'+(ui.tab===x[0]?' on':'')+'" data-tab="'+x[0]+'">'+x[1]+'</button>';
     }).join('');
-    var h = carryBanner() + (ui.tab==='overview' ? renderOverview() : ui.tab==='review' ? renderReview() : renderScope(ui.tab));
+    var h = planBanner() + carryBanner() + (ui.tab==='overview' ? renderOverview() : ui.tab==='review' ? renderReview() : renderScope(ui.tab));
     document.getElementById('app').innerHTML = h;
+  }
+
+  // ---------- evening planning ----------
+  function tomorrowStr(){ return addDays(todayStr(),1); }
+  function eveningDue(){
+    var h=state.eveningHour;
+    if(h==null || h<0) return false;
+    return new Date().getHours()>=h && !state.planned[tomorrowStr()] && state.planSkip!==todayStr();
+  }
+  function planBanner(){
+    if(ui.date!==todayStr() || !eveningDue()) return '';
+    return '<div class="banner" style="background:var(--accent-soft)"><span><b style="color:var(--accent)">Plan tomorrow</b> · take a minute to set up '+esc(shortDate(tomorrowStr()))+'.</span>'+
+      '<button class="btn" data-act="plan">Plan</button></div>';
   }
 
   function carryBanner(){
@@ -498,7 +517,8 @@ textarea.rev{min-height:64px;resize:vertical}
         (g.length||extra ? g.map(function(i){return rowHtml(i,ui.range==='week');}).join('')+extra : '<div class="empty">Nothing planned.</div>')+'</section>';
     });
     h+='<div class="actions"><button class="btn ghost" data-act="ics-day">Add to Apple Calendar</button>'+
-       '<button class="btn ghost" data-act="rem-day">Send to Reminders</button></div>';
+       '<button class="btn ghost" data-act="rem-day">Send to Reminders</button>'+
+       '<button class="btn ghost" data-act="plan">Plan tomorrow</button></div>';
     return h;
   }
 
@@ -535,6 +555,29 @@ textarea.rev{min-height:64px;resize:vertical}
       '<div class="actions"><button class="btn" type="submit">Carry selected</button><button class="btn ghost" type="button" data-close="1">Not now</button></div></form>');
   }
 
+  function openPlan(){
+    var tm=tomorrowStr(), td=todayStr();
+    ensureRecurring(tm);
+    var tomorrow=live().filter(function(i){return i.date===tm && !isPersist(i);}).sort(cmpItems);
+    var open=live().filter(function(i){return i.date===td && !i.done && !i.rid && !isPersist(i);}).sort(cmpItems);
+    var off=ui.ptOff||[];
+    var wd=state.wdays[tm], today=state.wdays[td], sugg='';
+    if(today && today.plan){ sugg='W'+(parseInt(today.plan.slice(1),10)%3+1); }
+    var cur=wd?wd.plan:sugg;
+    openModal('<h3>Plan tomorrow · '+esc(longDate(tm))+'</h3>'+
+      '<div class="field"><label>Already on tomorrow ('+tomorrow.length+')</label>'+
+        (tomorrow.length?tomorrow.map(function(i){return '<div class="sub" style="padding:2px 0">'+(i.time?fmtTime(i.time)+' · ':'')+esc(i.text)+' <span class="chip">'+SCOPE_LABEL[i.scope]+'</span></div>';}).join(''):'<div class="sub">Nothing yet.</div>')+'</div>'+
+      (open.length?'<div class="field"><label>Unfinished today. Move to tomorrow?</label>'+open.map(function(i){
+        return '<label class="carry-row"><input type="checkbox" data-pt="'+i.id+'"'+(off.indexOf(i.id)<0?' checked':'')+'><span><div>'+esc(i.text)+'</div><div class="sub">'+SCOPE_LABEL[i.scope]+'</div></span></label>';
+      }).join('')+'</div>':'')+
+      '<form id="ptAdd" class="add" style="margin-bottom:10px"><input type="text" placeholder="Add something for tomorrow" autocomplete="off">'+
+        '<select aria-label="Area">'+[['personal','Personal'],['work','Work'],['both','Both']].map(function(o){return '<option value="'+o[0]+'">'+o[1]+'</option>';}).join('')+'</select>'+
+        '<button class="btn" type="submit">Add</button></form>'+
+      '<div class="field"><label>Workout tomorrow'+(sugg&&!wd?' (suggested next: '+sugg+')':'')+'</label><select id="ptWorkout">'+
+        '<option value="">Rest / none</option>'+['W1','W2','W3'].map(function(k){return '<option value="'+k+'"'+(cur===k?' selected':'')+'>'+k+' · '+esc(state.plans[k].name)+'</option>';}).join('')+'</select></div>'+
+      '<div class="actions"><button class="btn" data-act="plan-done">Done planning</button><button class="btn ghost" data-act="plan-skip">Not tonight</button></div>');
+  }
+
   function openPlans(){
     openModal('<h3>Workout plans</h3><form id="plansForm">'+['W1','W2','W3'].map(function(k){
       var p=state.plans[k];
@@ -547,6 +590,7 @@ textarea.rev{min-height:64px;resize:vertical}
     var perm = window.Notification ? Notification.permission : 'unsupported';
     openModal('<h3>Settings</h3>'+
       '<div class="field"><label>Theme</label><select id="themeSel">'+optionsHtml([['','Match device'],['light','Light'],['dark','Dark']],state.theme)+'</select></div>'+
+      '<div class="field"><label>Evening prompt to plan tomorrow</label><select id="eveSel">'+optionsHtml([['-1','Off'],['18','6 PM'],['19','7 PM'],['20','8 PM'],['21','9 PM'],['22','10 PM']],String(state.eveningHour))+'</select></div>'+
       '<div class="field"><label>Reminder alerts (while Daybook is open)</label>'+
         '<button class="btn ghost" data-act="notif">'+(perm==='granted'?'Enabled':perm==='denied'?'Blocked in browser settings':'Enable notifications')+'</button></div>'+
       '<div class="field"><label>Apple Calendar</label><div class="sub">Use <b>Add to Apple Calendar</b> on the Overview page (whole day) or "Calendar" inside any item. It downloads an .ics file; open it to add the events with their reminders.</div></div>'+
@@ -611,6 +655,18 @@ textarea.rev{min-height:64px;resize:vertical}
       if(act==='prev'||act==='next'){ ui.date=addDays(ui.date,act==='prev'?-1:1); ui.followToday=(ui.date===todayStr()); render(); }
       else if(act==='today'){ ui.date=todayStr(); ui.followToday=true; render(); }
       else if(act==='carry') openCarry();
+      else if(act==='plan'){ ui.ptOff=[]; openPlan(); }
+      else if(act==='plan-skip'){ state.planSkip=todayStr(); save(); closeModal(); render(); }
+      else if(act==='plan-done'){
+        var tm=tomorrowStr(), moved=0;
+        document.querySelectorAll('input[data-pt]:checked').forEach(function(c){
+          var m=findItem(c.getAttribute('data-pt')); if(m){ m.date=tm; m.handled=false; moved++; }
+        });
+        var w=document.getElementById('ptWorkout').value;
+        if(w) state.wdays[tm]={plan:w,done:(state.wdays[tm]&&state.wdays[tm].plan===w)?state.wdays[tm].done:{}};
+        else if(state.wdays[tm]) state.wdays[tm]={plan:'',done:{}};
+        state.planned[tm]=true; save(); closeModal(); render(); toast('Tomorrow is planned'+(moved?' · '+moved+' moved':''));
+      }
       else if(act==='wk-prev'||act==='wk-next'){ ui.date=addDays(weekStart(ui.date),act==='wk-prev'?-7:7); ui.followToday=(ui.date===todayStr()); render(); }
       else if(act==='wk-move'){
         var tt=todayStr(), n=0;
@@ -646,6 +702,12 @@ textarea.rev{min-height:64px;resize:vertical}
     if(t.hasAttribute('data-rev')){
       var wk=t.getAttribute('data-week'); state.reviews[wk]=state.reviews[wk]||{}; state.reviews[wk][t.getAttribute('data-rev')]=t.value; save(); return;
     }
+    if(t.hasAttribute('data-pt')){
+      var id=t.getAttribute('data-pt'), arr=ui.ptOff||(ui.ptOff=[]), ix=arr.indexOf(id);
+      if(t.checked && ix>=0) arr.splice(ix,1); else if(!t.checked && ix<0) arr.push(id);
+      return;
+    }
+    if(t.id==='eveSel'){ state.eveningHour=parseInt(t.value,10); save(); render(); return; }
     if(t.id==='themeSel'){ state.theme=t.value; save(); applyTheme(); return; }
     if(t.id==='importFile' && t.files[0]){
       var r=new FileReader();
@@ -668,6 +730,14 @@ textarea.rev{min-height:64px;resize:vertical}
       else if(/^(rest|off|none|)$/.test(v)) state.wdays[ui.date]={plan:'',done:{}};
       else { toast('Use W1, W2 or W3'); return; }
       save(); render(); return;
+    }
+    if(f.id==='ptAdd'){
+      var raw=f.querySelector('input').value.trim(); if(!raw) return;
+      var txt=raw, pri='', bang=txt.match(/\s*(!{1,2})\s*$/);
+      if(bang){ pri=bang[1].length>1?'high':'med'; txt=txt.slice(0,bang.index).trim()||txt; }
+      var x=extractTime(txt);
+      state.items.push({id:uid(),scope:f.querySelector('select').value,sec:'tasks',text:x.text||txt,date:tomorrowStr(),time:x.time,remind:'',pri:pri,subs:[],done:false});
+      save(); openPlan(); render(); var ni=document.querySelector('#ptAdd input'); if(ni) ni.focus(); return;
     }
     if(f.classList.contains('add')){
       var scope=f.getAttribute('data-scope'), sec=f.getAttribute('data-sec'), persist=secDef(scope,sec).persist;
@@ -729,13 +799,21 @@ textarea.rev{min-height:64px;resize:vertical}
   });
 
   // ---------- daily refresh ----------
-  var lastToday=todayStr();
+  var lastToday=todayStr(), lastDue=eveningDue();
   function tick(){
     var t=todayStr();
     if(t!==lastToday){
       lastToday=t;
       if(ui.followToday) ui.date=t;
       render();
+    }
+    var due=eveningDue();
+    if(due!==lastDue){
+      lastDue=due; render();
+      if(due){
+        toast('🌙 Time to plan tomorrow');
+        try { if(window.Notification && Notification.permission==='granted') new Notification('Daybook',{body:'Time to plan tomorrow'}); } catch(e){}
+      }
     }
     checkReminders();
   }
