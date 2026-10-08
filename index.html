@@ -605,30 +605,34 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
   function legacyData(){ try { var raw=localStorage.getItem('daybook-data'); return raw?JSON.parse(raw):null; } catch(e){ return null; } }
   function computeLegacy(){
     var d=legacyData(); if(!d) return null;
-    var dates={}, n=0;
-    (d.entries||[]).forEach(function(e){ if(e&&e.date&&e.title){ n++; dates[e.date]=1; } });
-    Object.keys(d.meals||{}).forEach(function(k){ (d.meals[k]||[]).forEach(function(){ n++; dates[k]=1; }); });
-    (d.topTasks||[]).forEach(function(t){ if(t&&t.title&&!t.done) n++; });
+    var by={}, n=0, top=0;
+    var day=function(k){ return by[k]||(by[k]={n:0,open:0}); };
+    (d.entries||[]).forEach(function(e){ if(e&&e.date&&e.title){ n++; var x=day(e.date); x.n++; if(!e.done) x.open++; } });
+    Object.keys(d.meals||{}).forEach(function(k){ (d.meals[k]||[]).forEach(function(){ n++; day(k).n++; }); });
+    (d.topTasks||[]).forEach(function(t){ if(t&&t.title&&!t.done){ n++; top++; } });
     if(!n) return null;
-    var ds=Object.keys(dates).sort();
-    return {count:n, days:ds.length, first:ds[0], last:ds[ds.length-1]};
+    var ds=Object.keys(by).sort();
+    return {count:n, days:ds.length, first:ds[0], last:ds[ds.length-1], by:by, top:top};
   }
-  function importLegacy(){
+  // opts.days: array of YYYY-MM-DD to bring in; opts.top: include unfinished priority tasks
+  function importLegacy(opts){
     var d=legacyData(), added=0; if(!d) return {added:0};
+    opts=opts||{}; var want={}; (opts.days||[]).forEach(function(x){ want[x]=1; });
     var t=todayStr(), yest=addDays(t,-1);
     var have={}; state.items.forEach(function(i){ have[i.id]=1; });
     var add=function(it){ if(have[it.id]) return; have[it.id]=1; state.items.push(it); added++; };
     (d.entries||[]).forEach(function(e){
-      if(!e||!e.date||!e.title) return;
+      if(!e||!e.date||!e.title||!want[e.date]) return;
       var scope=e.category==='work'?'work':'personal';
       add({id:'old-'+e.id, scope:scope, sec:(scope==='work'&&e.type==='meeting')?'meetings':'tasks', text:String(e.title),
         date:e.date, time:e.time||'', remind:(e.type==='reminder'&&e.time&&e.date>=t)?'0':'', pri:'', subs:[], done:!!e.done, handled:e.date<yest});
     });
-    (d.topTasks||[]).forEach(function(k){
+    if(opts.top) (d.topTasks||[]).forEach(function(k){
       if(!k||!k.title||k.done) return;
       add({id:'old-t'+k.id, scope:k.category==='personal'?'personal':'work', sec:'tasks', text:String(k.title), date:t, time:'', remind:'', pri:'high', subs:[], done:false});
     });
     Object.keys(d.meals||{}).forEach(function(day){
+      if(!want[day]) return;
       (d.meals[day]||[]).forEach(function(m){
         if(!m||!m.name) return;
         add({id:'old-m'+m.id, scope:'personal', sec:'meals', text:String(m.name)+(m.calories?' · '+m.calories+' kcal':''), date:day, time:'', remind:'', pri:'', subs:[], done:true, handled:true});
@@ -637,10 +641,40 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
     state.legacy=Object.assign(state.legacy||{},{imported:true,at:new Date().toISOString(),added:added});
     save(); return {added:added};
   }
+  // Permanently removes every dated record NOT in keepDays from the old data and from Pebble's imported copies.
+  function trimLegacy(keepDays){
+    var keep={}; keepDays.forEach(function(x){ keep[x]=1; });
+    var isDay=function(k){ return /^\d{4}-\d{2}-\d{2}$/.test(k); };
+    var d=legacyData();
+    if(d){
+      d.entries=(d.entries||[]).filter(function(e){ return !(e&&e.date) || keep[e.date]; });
+      ['meals','journal','health','journalFiles'].forEach(function(f){
+        if(d[f]&&typeof d[f]==='object') Object.keys(d[f]).forEach(function(k){ if(isDay(k)&&!keep[k]) delete d[f][k]; });
+      });
+      try { localStorage.setItem('daybook-data',JSON.stringify(d)); } catch(e){}
+    }
+    var before=state.items.length;
+    state.items=state.items.filter(function(i){ return !(String(i.id).indexOf('old-')===0 && i.date && !keep[i.date] && String(i.id).indexOf('old-t')!==0); });
+    save(); return before-state.items.length;
+  }
+  function openLegacy(){
+    if(!legacyInfo) return toast('No old Daybook data found');
+    var t=todayStr(), yest=addDays(t,-1), days=Object.keys(legacyInfo.by).sort().reverse();
+    var sel=days.filter(function(x){return x>=yest;}); if(!sel.length&&days.length) sel=[days[0]];
+    openModal('<h3>Bring in your old Daybook data</h3><div class="sub" style="margin-bottom:8px">Tick the days you want. Yesterday and later are ticked for you.</div>'+
+      '<form id="legacyForm">'+
+      days.map(function(x){ var v=legacyInfo.by[x];
+        return '<label class="carry-row"><input type="checkbox" name="day" value="'+x+'"'+(sel.indexOf(x)>=0?' checked':'')+'><span><div>'+esc(longDate(x))+(x===yest?' <span class="chip t">Yesterday</span>':x===t?' <span class="chip t">Today</span>':'')+'</div><div class="sub">'+v.n+(v.n===1?' entry':' entries')+(v.open?' · '+v.open+' unfinished':'')+'</div></span></label>';
+      }).join('')+
+      (legacyInfo.top?'<label class="carry-row"><input type="checkbox" name="top" checked><span><div>Unfinished priority tasks</div><div class="sub">'+legacyInfo.top+' item'+(legacyInfo.top===1?'':'s')+' · added to today as High priority</div></span></label>':'')+
+      '<label class="carry-row" style="margin-top:8px"><input type="checkbox" name="trim" checked><span><div>Delete the days I leave unticked</div><div class="sub">Permanently removes them from the old Daybook data on this device. This cannot be undone.</div></span></label>'+
+      '<div class="actions"><button class="btn" type="submit">Bring in selected</button><button class="btn ghost" type="button" data-close="1">Cancel</button>'+
+      '<span class="sp"></span><button class="link" type="button" data-act="legacy-download">Download all first</button></div></form>');
+  }
   function legacyBanner(){
     if(!legacyInfo || (state.legacy && (state.legacy.imported||state.legacy.dismissed))) return '';
-    return '<div class="banner" style="background:var(--accent-soft)"><span><b style="color:var(--accent)">Found your old Daybook data</b> · '+legacyInfo.count+' entries across '+legacyInfo.days+' days ('+esc(shortDate(legacyInfo.first))+' to '+esc(shortDate(legacyInfo.last))+'). Bring them into Pebble?</span>'+
-      '<span style="display:flex;gap:6px"><button class="btn" data-act="legacy-import">Bring them in</button><button class="btn ghost" data-act="legacy-skip">Not now</button></span></div>';
+    return '<div class="banner" style="background:var(--accent-soft)"><span><b style="color:var(--accent)">Found your old Daybook data</b> · '+legacyInfo.count+' entries across '+legacyInfo.days+' days ('+esc(shortDate(legacyInfo.first))+' to '+esc(shortDate(legacyInfo.last))+'). Choose what to bring into Pebble.</span>'+
+      '<span style="display:flex;gap:6px"><button class="btn" data-act="legacy-import">Choose days</button><button class="btn ghost" data-act="legacy-skip">Not now</button></span></div>';
   }
 
   // ---------- safety nets: daily snapshots ----------
@@ -947,7 +981,7 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
     var h='<div class="field"><label>Old Daybook data</label>';
     if(legacyInfo){
       h+='<div class="sub" style="margin-bottom:6px">Found '+legacyInfo.count+' entries from the old design ('+esc(shortDate(legacyInfo.first))+' to '+esc(shortDate(legacyInfo.last))+').'+(state.legacy&&state.legacy.imported?' Already imported once; importing again only adds anything missing.':'')+'</div>'+
-        '<div class="actions" style="margin-top:0"><button class="btn ghost" data-act="legacy-import">Bring into Pebble</button><button class="btn ghost" data-act="legacy-download">Download as file</button></div>'+
+        '<div class="actions" style="margin-top:0"><button class="btn ghost" data-act="legacy-import">Choose days to bring in</button><button class="btn ghost" data-act="legacy-download">Download as file</button></div>'+
         '<div class="sub" style="margin-top:4px">Tasks, meetings and meals are imported. Journal, health and library stay in the old data file.</div></div>';
     } else h+='<div class="sub">No old Daybook data found in this browser.</div></div>';
     var snaps=listSnaps();
@@ -1056,7 +1090,7 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
         ui.date=ymd(new Date(tgt.getFullYear(),tgt.getMonth(),Math.min(cd.getDate(),dim))); ui.followToday=(ui.date===todayStr()); render();
       }
       else if(act==='quickadd') openQuickAdd();
-      else if(act==='legacy-import'){ var r=importLegacy(); closeModal(); render(); toast(r.added?('Brought in '+r.added+' items from old Daybook'):'Nothing new to import'); }
+      else if(act==='legacy-import') openLegacy();
       else if(act==='legacy-skip'){ state.legacy=Object.assign(state.legacy||{},{dismissed:true}); persist(); render(); }
       else if(act==='legacy-download'){ var rawOld=null; try{ rawOld=localStorage.getItem('daybook-data'); }catch(e){} if(rawOld) download('old-daybook-data-'+todayStr()+'.json','application/json',rawOld); else toast('No old data found'); }
       else if(act==='nudge-later'){ state.nudgeUntil=addDays(todayStr(),14); persist(); render(); }
@@ -1217,6 +1251,16 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
         if(ids.indexOf(i.id)>=0){ i.date=t; } else { i.handled=true; }
       });
       save(); closeModal(); ui.date=t; ui.followToday=true; render(); toast(ids.length?'Carried to today':'Left behind'); return;
+    }
+    if(f.id==='legacyForm'){
+      var lf=new FormData(f), chosen=lf.getAll('day'), wantTop=lf.has('top'), wantTrim=lf.has('trim');
+      var all=Object.keys(legacyInfo.by), dropped=all.filter(function(x){return chosen.indexOf(x)<0;});
+      if(!chosen.length && !wantTop){ toast('Tick at least one day'); return; }
+      if(wantTrim && dropped.length && !confirm('Permanently delete '+dropped.length+' unticked day'+(dropped.length===1?'':'s')+' from the old Daybook data on this device? This cannot be undone.')) return;
+      var res=importLegacy({days:chosen,top:wantTop}), removed=0;
+      if(wantTrim && dropped.length){ removed=trimLegacy(chosen); }
+      legacyInfo=computeLegacy(); closeModal(); render();
+      toast('Brought in '+res.added+' item'+(res.added===1?'':'s')+(wantTrim&&dropped.length?' · deleted '+dropped.length+' older day'+(dropped.length===1?'':'s'):'')); return;
     }
     if(f.id==='qaForm'){
       var q=new FormData(f), raw=(q.get('text')||'').trim(); if(!raw){ f.querySelector('input[name=text]').focus(); return; }
