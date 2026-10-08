@@ -198,7 +198,8 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
     s.theme = s.theme || '';
     return s;
   }
-  function save(){ try { localStorage.setItem(KEY, JSON.stringify(state)); } catch(e){} }
+  function persist(){ try { localStorage.setItem(KEY, JSON.stringify(state)); } catch(e){} }
+  function save(){ persist(); scheduleBackup(); }
 
   // ---------- dates ----------
   function pad(n){ return (n<10?'0':'')+n; }
@@ -633,6 +634,148 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
     }).join('')+'<div class="actions"><button class="btn" type="submit">Save</button><button class="btn ghost" type="button" data-close="1">Cancel</button></div></form>');
   }
 
+
+  // ---------- Google Drive backup ----------
+  var GOOGLE_CLIENT_ID = "484156423834-6l6boggn3e4ggpunjdefuvml4g1ec0rl.apps.googleusercontent.com";
+  var DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file";
+  var DRIVE_FILE = "daybook-backup.json";
+  var driveToken=null, driveExpiry=0, driveTimer=null, driveBusy=false;
+
+  function drv(){ return state.drive || (state.drive={}); }
+  function tokenValid(){ return !!driveToken && Date.now() < driveExpiry-60000; }
+
+  function loadGis(cb){
+    if(window.google && google.accounts && google.accounts.oauth2) return cb();
+    var ex=document.getElementById('gis');
+    if(ex){ ex.addEventListener('load',function(){cb();}); ex.addEventListener('error',function(){cb(new Error('Could not load Google sign-in'));}); return; }
+    var sc=document.createElement('script'); sc.id='gis'; sc.src='https://accounts.google.com/gsi/client'; sc.async=true;
+    sc.onload=function(){cb();}; sc.onerror=function(){cb(new Error('Could not load Google sign-in. Check your connection.'));};
+    document.head.appendChild(sc);
+  }
+  // interactive=true must be called from a tap (popup); false tries silently.
+  function getToken(interactive){
+    return new Promise(function(resolve,reject){
+      if(tokenValid()) return resolve(driveToken);
+      loadGis(function(err){
+        if(err) return reject(err);
+        var tc=google.accounts.oauth2.initTokenClient({
+          client_id:GOOGLE_CLIENT_ID, scope:DRIVE_SCOPE,
+          callback:function(r){
+            if(r.error) return reject(new Error(r.error));
+            driveToken=r.access_token; driveExpiry=Date.now()+(+r.expires_in||3600)*1000; resolve(driveToken);
+          },
+          error_callback:function(e){ reject(new Error((e&&e.type)||'sign-in cancelled')); }
+        });
+        tc.requestAccessToken({prompt: interactive ? '' : 'none'});
+      });
+    });
+  }
+  function gfetch(url,opts,interactive){
+    return getToken(interactive).then(function(tok){
+      opts=opts||{}; opts.headers=Object.assign({Authorization:'Bearer '+tok},opts.headers||{});
+      return fetch(url,opts);
+    }).then(function(r){
+      if(r.status===401){ driveToken=null; throw new Error('Google session expired. Reconnect to continue.'); }
+      if(!r.ok) throw new Error('Google Drive error ('+r.status+')');
+      return r;
+    });
+  }
+  function findBackup(interactive){
+    var d=drv();
+    var byName=function(){
+      var q=encodeURIComponent("name='"+DRIVE_FILE+"' and trashed=false");
+      return gfetch('https://www.googleapis.com/drive/v3/files?q='+q+'&fields=files(id,modifiedTime)&orderBy=modifiedTime desc',{},interactive)
+        .then(function(r){return r.json();}).then(function(j){ return (j.files&&j.files[0])||null; });
+    };
+    if(!d.fileId) return byName();
+    return gfetch('https://www.googleapis.com/drive/v3/files/'+d.fileId+'?fields=id,modifiedTime,trashed',{},interactive)
+      .then(function(r){return r.json();}).then(function(f){ return f.trashed?byName():f; })
+      .catch(function(e){ if(/\(404\)/.test(e.message)) return byName(); throw e; });
+  }
+  function backupPayload(){ var c=Object.assign({},state); delete c.drive; return JSON.stringify(c); }
+
+  function backupNow(interactive){
+    return findBackup(interactive).then(function(f){
+      var body, url, method;
+      if(f){
+        drv().fileId=f.id; method='PATCH'; url='https://www.googleapis.com/upload/drive/v3/files/'+f.id+'?uploadType=media&fields=id,modifiedTime';
+        return gfetch(url,{method:method,headers:{'Content-Type':'application/json'},body:backupPayload()},interactive);
+      }
+      var b='daybookboundary'+Date.now();
+      body='--'+b+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+JSON.stringify({name:DRIVE_FILE,mimeType:'application/json'})+
+        '\r\n--'+b+'\r\nContent-Type: application/json\r\n\r\n'+backupPayload()+'\r\n--'+b+'--';
+      return gfetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,modifiedTime',
+        {method:'POST',headers:{'Content-Type':'multipart/related; boundary='+b},body:body},interactive);
+    }).then(function(r){return r.json();}).then(function(j){
+      var d=drv(); d.fileId=j.id; d.lastBackup=new Date().toISOString(); d.synced=true; persist();
+    });
+  }
+  function scheduleBackup(){
+    var d=state.drive;
+    if(!d || !d.connected || d.auto===false || !d.synced || !tokenValid()) return;
+    clearTimeout(driveTimer);
+    driveTimer=setTimeout(function(){ backupNow(false).catch(function(){}); },15000);
+  }
+
+  function driveHtml(){
+    var d=drv(), h='<div class="field"><label>Google Drive backup</label>';
+    if(!d.connected){
+      return h+'<button class="btn ghost" data-act="drive-connect">Connect Google Drive</button>'+
+        '<div class="sub" style="margin-top:4px">Saves one file, <code>'+DRIVE_FILE+'</code>, to your Drive. Daybook can only see files it creates itself.</div></div>';
+    }
+    h+='<div class="sub" style="margin-bottom:6px">'+(tokenValid()?'Connected':'Signed out. Tap Reconnect to continue.')+
+      (d.lastBackup?' · Last backup '+esc(new Date(d.lastBackup).toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})):' · No backup yet')+'</div>'+
+      '<div class="actions" style="margin-top:0">'+
+      (tokenValid()?'':'<button class="btn" data-act="drive-connect">Reconnect</button>')+
+      '<button class="btn ghost" data-act="drive-backup">Back up now</button>'+
+      '<button class="btn ghost" data-act="drive-restore">Restore</button>'+
+      '<button class="btn danger" data-act="drive-disconnect">Disconnect</button></div>'+
+      '<label class="sub" style="display:flex;gap:6px;margin-top:8px;align-items:center"><input type="checkbox" id="driveAuto"'+(d.auto===false?'':' checked')+'> Back up automatically while Daybook is open and signed in</label></div>';
+    return h;
+  }
+  function driveRun(label,fn){
+    if(driveBusy) return; driveBusy=true; toast(label+'…');
+    fn().then(function(msg){ if(msg) toast(msg); }).catch(function(e){ toast('⚠ '+(e&&e.message||'Something went wrong')); })
+      .then(function(){ driveBusy=false; if(document.getElementById('themeSel')) openSettings(); });
+  }
+  function driveConnect(){
+    driveRun('Connecting',function(){
+      return getToken(true).then(function(){
+        var d=drv(); d.connected=true; if(d.auto==null) d.auto=true; persist();
+        return findBackup(true).then(function(f){
+          if(f){ d.fileId=f.id; if(!d.lastBackup) d.synced=false; persist(); return d.synced===false ? 'Connected. A backup already exists: choose Restore to load it, or Back up now to overwrite it.' : 'Connected'; }
+          d.synced=true; persist(); return backupNow(true).then(function(){ return 'Connected and backed up'; });
+        });
+      });
+    });
+  }
+  function driveBackupClick(){
+    var d=drv();
+    if(d.synced===false && !confirm('A backup already exists in your Google Drive. Overwrite it with the data on this device?')) return;
+    driveRun('Backing up',function(){ return backupNow(true).then(function(){ return 'Backed up to Google Drive'; }); });
+  }
+  function driveRestoreClick(){
+    driveRun('Looking for backup',function(){
+      return findBackup(true).then(function(f){
+        if(!f) throw new Error('No backup found in Google Drive yet.');
+        return gfetch('https://www.googleapis.com/drive/v3/files/'+f.id+'?alt=media',{},true).then(function(r){return r.json();}).then(function(data){
+          if(!data || !Array.isArray(data.items)) throw new Error('That file is not a Daybook backup.');
+          var when=f.modifiedTime?new Date(f.modifiedTime).toLocaleString():'unknown time';
+          if(!confirm('Replace the data on this device with the Drive backup from '+when+' ('+data.items.length+' items)? Export first if unsure.')) return 'Restore cancelled';
+          var keep=state.drive; delete data.drive;
+          localStorage.setItem(KEY,JSON.stringify(data)); state=load(); state.drive=keep; state.drive.fileId=f.id; state.drive.synced=true; persist();
+          applyTheme(); render(); return 'Restored from Google Drive';
+        });
+      });
+    });
+  }
+  function driveDisconnect(){
+    if(!confirm('Disconnect Google Drive? The backup file stays in your Drive.')) return;
+    var tok=driveToken; driveToken=null; driveExpiry=0; clearTimeout(driveTimer);
+    try { if(tok && window.google && google.accounts) google.accounts.oauth2.revoke(tok,function(){}); } catch(e){}
+    state.drive={}; persist(); openSettings();
+  }
+
   function openSettings(){
     var perm = window.Notification ? Notification.permission : 'unsupported';
     openModal('<h3>Settings</h3>'+
@@ -650,7 +793,8 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
       '<div class="field"><label>Backup</label><div class="actions" style="margin-top:0">'+
         '<button class="btn ghost" data-act="backup">Export data</button>'+
         '<label class="btn ghost" style="cursor:pointer">Import data<input type="file" id="importFile" accept="application/json" hidden></label></div>'+
-        '<div class="sub" style="margin-top:4px">Data is stored on this device only. Export a backup now and then.</div></div>'+
+        '<div class="sub" style="margin-top:4px">Data is stored on this device. Export a file, or back up to Google Drive below.</div></div>'+
+      driveHtml()+
       '<div class="actions"><button class="btn" data-close="1">Done</button></div>');
   }
 
@@ -742,6 +886,10 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
       else if(act==='notif'){
         if(window.Notification) Notification.requestPermission().then(openSettings); else toast('Notifications not supported here');
       }
+      else if(act==='drive-connect') driveConnect();
+      else if(act==='drive-backup') driveBackupClick();
+      else if(act==='drive-restore') driveRestoreClick();
+      else if(act==='drive-disconnect') driveDisconnect();
       else if(act==='backup') download('daybook-backup-'+todayStr()+'.json','application/json',JSON.stringify(state,null,2));
     }
   });
@@ -779,6 +927,7 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
       if(t.checked && ix>=0) arr.splice(ix,1); else if(!t.checked && ix<0) arr.push(id);
       return;
     }
+    if(t.id==='driveAuto'){ drv().auto=t.checked; persist(); return; }
     if(t.id==='eveSel'){ state.eveningHour=parseInt(t.value,10); save(); render(); return; }
     if(t.id==='themeSel'){ state.theme=t.value; save(); applyTheme(); return; }
     if(t.id==='importFile' && t.files[0]){
@@ -787,7 +936,7 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
         try {
           var d=JSON.parse(r.result);
           if(!d||!Array.isArray(d.items)) throw 0;
-          state=d; localStorage.setItem(KEY,JSON.stringify(d)); state=load(); applyTheme(); closeModal(); render(); toast('Imported');
+          var keepDrive=state.drive; delete d.drive; localStorage.setItem(KEY,JSON.stringify(d)); state=load(); state.drive=keepDrive||{}; persist(); applyTheme(); closeModal(); render(); toast('Imported');
         } catch(err){ toast('That file is not a Daybook backup'); }
       };
       r.readAsText(t.files[0]);
@@ -896,6 +1045,7 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
   applyTheme();
   render();
   tick();
+  if(state.drive && state.drive.connected) getToken(false).catch(function(){});
   if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function(){});
 })();
 </script>
