@@ -3,12 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Daybook</title>
+<title>Pebble</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#4a6fa5">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Daybook">
-<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-title" content="Pebble">
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+<link rel="apple-touch-icon" href="icon-180.png">
 <style>
 :root{
   --bg:#fafaf9; --surface:#ffffff; --line:#e7e5e4; --text:#1c1917; --muted:#78716c;
@@ -282,7 +283,7 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
         state.fired[key]=Date.now(); changed=true;
         var msg=(it.time?fmtTime(it.time)+' · ':'')+it.text;
         toast('🔔 '+msg);
-        try { if(window.Notification && Notification.permission==='granted') new Notification('Daybook',{body:msg}); } catch(e){}
+        try { if(window.Notification && Notification.permission==='granted') new Notification('Pebble',{body:msg}); } catch(e){}
       }
     });
     var cutoff=Date.now()-3*86400000;
@@ -303,7 +304,7 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
     return d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+'T'+pad(d.getHours())+pad(d.getMinutes())+'00';
   }
   function buildIcs(items){
-    var L=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Daybook//EN','CALSCALE:GREGORIAN'];
+    var L=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Pebble//EN','CALSCALE:GREGORIAN'];
     var stamp=new Date().toISOString().replace(/[-:]/g,'').replace(/\.\d+/,'');
     items.forEach(function(it){
       L.push('BEGIN:VEVENT','UID:'+it.id+'-'+it.date+'@daybook','DTSTAMP:'+stamp,'SUMMARY:'+icsEsc(it.text),
@@ -638,7 +639,7 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
   // ---------- Google Drive backup ----------
   var GOOGLE_CLIENT_ID = "484156423834-6l6boggn3e4ggpunjdefuvml4g1ec0rl.apps.googleusercontent.com";
   var DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file";
-  var DRIVE_FILE = "daybook-backup.json";
+  var DRIVE_FILE = "pebble-backup.json", LEGACY_DRIVE_FILE = "daybook-backup.json";
   var driveToken=null, driveExpiry=0, driveTimer=null, driveBusy=false;
 
   function drv(){ return state.drive || (state.drive={}); }
@@ -683,7 +684,7 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
   function findBackup(interactive){
     var d=drv();
     var byName=function(){
-      var q=encodeURIComponent("name='"+DRIVE_FILE+"' and trashed=false");
+      var q=encodeURIComponent("(name='"+DRIVE_FILE+"' or name='"+LEGACY_DRIVE_FILE+"') and trashed=false");
       return gfetch('https://www.googleapis.com/drive/v3/files?q='+q+'&fields=files(id,modifiedTime)&orderBy=modifiedTime desc',{},interactive)
         .then(function(r){return r.json();}).then(function(j){ return (j.files&&j.files[0])||null; });
     };
@@ -721,7 +722,7 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
     var d=drv(), h='<div class="field"><label>Google Drive backup</label>';
     if(!d.connected){
       return h+'<button class="btn ghost" data-act="drive-connect">Connect Google Drive</button>'+
-        '<div class="sub" style="margin-top:4px">Saves one file, <code>'+DRIVE_FILE+'</code>, to your Drive. Daybook can only see files it creates itself.</div></div>';
+        '<div class="sub" style="margin-top:4px">Saves one file, <code>'+DRIVE_FILE+'</code>, to your Drive. Pebble can only see files it creates itself.</div></div>';
     }
     h+='<div class="sub" style="margin-bottom:6px">'+(tokenValid()?'Connected':'Signed out. Tap Reconnect to continue.')+
       (d.lastBackup?' · Last backup '+esc(new Date(d.lastBackup).toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})):' · No backup yet')+'</div>'+
@@ -730,7 +731,7 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
       '<button class="btn ghost" data-act="drive-backup">Back up now</button>'+
       '<button class="btn ghost" data-act="drive-restore">Restore</button>'+
       '<button class="btn danger" data-act="drive-disconnect">Disconnect</button></div>'+
-      '<label class="sub" style="display:flex;gap:6px;margin-top:8px;align-items:center"><input type="checkbox" id="driveAuto"'+(d.auto===false?'':' checked')+'> Back up automatically while Daybook is open and signed in</label></div>';
+      '<label class="sub" style="display:flex;gap:6px;margin-top:8px;align-items:center"><input type="checkbox" id="driveAuto"'+(d.auto===false?'':' checked')+'> Back up automatically while Pebble is open and signed in</label></div>';
     return h;
   }
   function driveRun(label,fn){
@@ -759,7 +760,7 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
       return findBackup(true).then(function(f){
         if(!f) throw new Error('No backup found in Google Drive yet.');
         return gfetch('https://www.googleapis.com/drive/v3/files/'+f.id+'?alt=media',{},true).then(function(r){return r.json();}).then(function(data){
-          if(!data || !Array.isArray(data.items)) throw new Error('That file is not a Daybook backup.');
+          if(!data || !Array.isArray(data.items)) throw new Error('That file is not a Pebble backup.');
           var when=f.modifiedTime?new Date(f.modifiedTime).toLocaleString():'unknown time';
           if(!confirm('Replace the data on this device with the Drive backup from '+when+' ('+data.items.length+' items)? Export first if unsure.')) return 'Restore cancelled';
           var keep=state.drive; delete data.drive;
@@ -781,7 +782,7 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
     openModal('<h3>Settings</h3>'+
       '<div class="field"><label>Theme</label><select id="themeSel">'+optionsHtml([['','Match device'],['light','Light'],['dark','Dark']],state.theme)+'</select></div>'+
       '<div class="field"><label>Evening prompt to plan tomorrow</label><select id="eveSel">'+optionsHtml([['-1','Off'],['18','6 PM'],['19','7 PM'],['20','8 PM'],['21','9 PM'],['22','10 PM']],String(state.eveningHour))+'</select></div>'+
-      '<div class="field"><label>Reminder alerts (while Daybook is open)</label>'+
+      '<div class="field"><label>Reminder alerts (while Pebble is open)</label>'+
         '<button class="btn ghost" data-act="notif">'+(perm==='granted'?'Enabled':perm==='denied'?'Blocked in browser settings':'Enable notifications')+'</button></div>'+
       '<div class="field"><label>Apple Calendar</label><div class="sub">Use <b>Add to Apple Calendar</b> on the Overview page (whole day) or "Calendar" inside any item. It downloads an .ics file; open it to add the events with their reminders.</div></div>'+
       '<div class="field"><label>Apple Reminders (one-time Shortcut setup)</label>'+
@@ -849,7 +850,7 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
       var it=findItem(el.getAttribute('data-del')); if(it){ if(it.rid) it.gone=true; else state.items=state.items.filter(function(i){return i!==it;}); save(); }
       closeModal(); render(); return;
     }
-    if((el=t.closest('[data-item-ics]'))){ var a=findItem(el.getAttribute('data-item-ics')); if(a) exportIcs([a],'daybook-item.ics'); return; }
+    if((el=t.closest('[data-item-ics]'))){ var a=findItem(el.getAttribute('data-item-ics')); if(a) exportIcs([a],'pebble-item.ics'); return; }
     if((el=t.closest('[data-item-rem]'))){ var b=findItem(el.getAttribute('data-item-rem')); if(b) sendToReminders([b]); return; }
     if(t.closest('[data-close]') || t.getAttribute('data-modal-bg')){ closeModal(); return; }
     if((el=t.closest('[data-act]'))){
@@ -881,7 +882,7 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
       }
       else if(act==='plans') openPlans();
       else if(act==='settings') openSettings();
-      else if(act==='ics-day') exportIcs(itemsOnDay(ui.date),'daybook-'+ui.date+'.ics');
+      else if(act==='ics-day') exportIcs(itemsOnDay(ui.date),'pebble-'+ui.date+'.ics');
       else if(act==='rem-day') sendToReminders(itemsOnDay(ui.date));
       else if(act==='notif'){
         if(window.Notification) Notification.requestPermission().then(openSettings); else toast('Notifications not supported here');
@@ -890,7 +891,7 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
       else if(act==='drive-backup') driveBackupClick();
       else if(act==='drive-restore') driveRestoreClick();
       else if(act==='drive-disconnect') driveDisconnect();
-      else if(act==='backup') download('daybook-backup-'+todayStr()+'.json','application/json',JSON.stringify(state,null,2));
+      else if(act==='backup') download('pebble-backup-'+todayStr()+'.json','application/json',JSON.stringify(state,null,2));
     }
   });
 
@@ -937,7 +938,7 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
           var d=JSON.parse(r.result);
           if(!d||!Array.isArray(d.items)) throw 0;
           var keepDrive=state.drive; delete d.drive; localStorage.setItem(KEY,JSON.stringify(d)); state=load(); state.drive=keepDrive||{}; persist(); applyTheme(); closeModal(); render(); toast('Imported');
-        } catch(err){ toast('That file is not a Daybook backup'); }
+        } catch(err){ toast('That file is not a Pebble backup'); }
       };
       r.readAsText(t.files[0]);
     }
@@ -1033,7 +1034,7 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
       lastDue=due; render();
       if(due){
         toast('🌙 Time to plan tomorrow');
-        try { if(window.Notification && Notification.permission==='granted') new Notification('Daybook',{body:'Time to plan tomorrow'}); } catch(e){}
+        try { if(window.Notification && Notification.permission==='granted') new Notification('Pebble',{body:'Time to plan tomorrow'}); } catch(e){}
       }
     }
     checkReminders();

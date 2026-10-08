@@ -1,6 +1,6 @@
 {
-  "name": "Daybook",
-  "short_name": "Daybook",
+  "name": "Pebble",
+  "short_name": "Pebble",
   "description": "A calm daily planner for personal, work and shared items.",
   "start_url": "./index.html",
   "scope": "./",
