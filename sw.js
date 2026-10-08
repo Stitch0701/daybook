@@ -1,6 +1,6 @@
-// Minimal offline cache for the Daybook app shell.
+// Minimal offline cache for the Pebble app shell.
 // Bump CACHE_NAME whenever index.html changes so installed apps pick up the update.
-const CACHE_NAME = 'daybook-shell-v3';
+const CACHE_NAME = 'pebble-shell-v1';
 const SHELL_FILES = [
   './',
   './index.html',
