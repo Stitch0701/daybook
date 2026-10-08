@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Daybook"><rect width="512" height="512" fill="#f6f1e7"/>
+<g fill="none" stroke-width="48" stroke-linecap="round" transform="rotate(-90 256 256)">
+<circle cx="256" cy="256" r="124" stroke="#7fb59a" stroke-dasharray="190 589" stroke-dashoffset="0"/>
+<circle cx="256" cy="256" r="124" stroke="#6b93d6" stroke-dasharray="190 589" stroke-dashoffset="-259.7"/>
+<circle cx="256" cy="256" r="124" stroke="#eea94e" stroke-dasharray="190 589" stroke-dashoffset="-519.4"/></g>
+<circle cx="256" cy="256" r="34" fill="#1e2433"/></svg>
