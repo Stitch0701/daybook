@@ -731,15 +731,16 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
   }
   function openLegacy(){
     if(!legacyInfo) return toast('No old Daybook data found');
-    var t=todayStr(), yest=addDays(t,-1), days=Object.keys(legacyInfo.by).sort().reverse();
-    var sel=days.filter(function(x){return x>=yest;}); if(!sel.length&&days.length) sel=[days[0]];
-    openModal('<h3>Bring in your old Daybook data</h3><div class="sub" style="margin-bottom:8px">Tick the days you want. Yesterday and later are ticked for you.</div>'+
+    var t=todayStr(), yest=addDays(t,-1), from=addDays(t,-3), days=Object.keys(legacyInfo.by).sort().reverse();
+    var sel=days.filter(function(x){return x>=from;}); if(!sel.length&&days.length) sel=[days[0]];
+    openModal('<h3>Bring in your old Daybook data</h3><div class="sub" style="margin-bottom:8px">Tick the days you want. The last few days are ticked for you; use the shortcuts if you need others.</div>'+
+      '<div class="actions" style="margin:0 0 4px"><button type="button" class="link" data-lsel="all">Tick all</button><button type="button" class="link" data-lsel="recent">Last 3 days</button><button type="button" class="link" data-lsel="none">Clear</button></div>'+
       '<form id="legacyForm">'+
       days.map(function(x){ var v=legacyInfo.by[x];
         return '<label class="carry-row"><input type="checkbox" name="day" value="'+x+'"'+(sel.indexOf(x)>=0?' checked':'')+'><span><div>'+esc(longDate(x))+(x===yest?' <span class="chip t">Yesterday</span>':x===t?' <span class="chip t">Today</span>':'')+'</div><div class="sub">'+v.n+(v.n===1?' entry':' entries')+(v.open?' · '+v.open+' unfinished':'')+'</div></span></label>';
       }).join('')+
       (legacyInfo.top?'<label class="carry-row"><input type="checkbox" name="top" checked><span><div>Unfinished priority tasks</div><div class="sub">'+legacyInfo.top+' item'+(legacyInfo.top===1?'':'s')+' · added to today as High priority</div></span></label>':'')+
-      (legacyOverride?'':'<label class="carry-row" style="margin-top:8px"><input type="checkbox" name="trim" checked><span><div>Delete the days I leave unticked</div><div class="sub">Permanently removes them from the old Daybook data on this device. This cannot be undone.</div></span></label>')+
+      (legacyOverride?'':'<label class="carry-row" style="margin-top:8px"><input type="checkbox" name="trim"><span><div>Also delete the days I leave unticked</div><div class="sub">Optional. Permanently removes them from the old Daybook data on this device. This cannot be undone. Leave this off if unsure.</div></span></label>')+
       '<div class="actions"><button class="btn" type="submit">Bring in selected</button><button class="btn ghost" type="button" data-close="1">Cancel</button>'+
       '<span class="sp"></span>'+(legacyOverride?'':'<button class="link" type="button" data-act="legacy-download">Download all first</button>')+'</div></form>');
   }
@@ -1243,6 +1244,11 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
   document.addEventListener('click',function(e){
     var t=e.target, el;
     if(t.closest('[data-subrow]')) return;
+    if((el=t.closest('[data-lsel]'))){
+      var mode=el.getAttribute('data-lsel'), cut3=addDays(todayStr(),-3);
+      document.querySelectorAll('#legacyForm input[name=day]').forEach(function(c){ c.checked = mode==='all' ? true : mode==='none' ? false : (c.value>=cut3); });
+      return;
+    }
     if((el=t.closest('[data-qd]'))){ var di=document.querySelector('#editForm input[name=date]'); if(di) di.value=addDays(todayStr(),+el.getAttribute('data-qd')); return; }
     if((el=t.closest('[data-hit-edit]'))){ openEdit(el.getAttribute('data-hit-edit')); return; }
     if((el=t.closest('[data-hit]'))){
