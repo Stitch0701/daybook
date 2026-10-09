@@ -731,15 +731,16 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
   }
   function openLegacy(){
     if(!legacyInfo) return toast('No old Daybook data found');
-    var t=todayStr(), yest=addDays(t,-1), days=Object.keys(legacyInfo.by).sort().reverse();
-    var sel=days.filter(function(x){return x>=yest;}); if(!sel.length&&days.length) sel=[days[0]];
-    openModal('<h3>Bring in your old Daybook data</h3><div class="sub" style="margin-bottom:8px">Tick the days you want. Yesterday and later are ticked for you.</div>'+
+    var t=todayStr(), yest=addDays(t,-1), from=addDays(t,-3), days=Object.keys(legacyInfo.by).sort().reverse();
+    var sel=days.filter(function(x){return x>=from;}); if(!sel.length&&days.length) sel=[days[0]];
+    openModal('<h3>Bring in your old Daybook data</h3><div class="sub" style="margin-bottom:8px">Tick the days you want. The last few days are ticked for you; use the shortcuts if you need others.</div>'+
+      '<div class="actions" style="margin:0 0 4px"><button type="button" class="link" data-lsel="all">Tick all</button><button type="button" class="link" data-lsel="recent">Last 3 days</button><button type="button" class="link" data-lsel="none">Clear</button></div>'+
       '<form id="legacyForm">'+
       days.map(function(x){ var v=legacyInfo.by[x];
         return '<label class="carry-row"><input type="checkbox" name="day" value="'+x+'"'+(sel.indexOf(x)>=0?' checked':'')+'><span><div>'+esc(longDate(x))+(x===yest?' <span class="chip t">Yesterday</span>':x===t?' <span class="chip t">Today</span>':'')+'</div><div class="sub">'+v.n+(v.n===1?' entry':' entries')+(v.open?' · '+v.open+' unfinished':'')+'</div></span></label>';
       }).join('')+
       (legacyInfo.top?'<label class="carry-row"><input type="checkbox" name="top" checked><span><div>Unfinished priority tasks</div><div class="sub">'+legacyInfo.top+' item'+(legacyInfo.top===1?'':'s')+' · added to today as High priority</div></span></label>':'')+
-      (legacyOverride?'':'<label class="carry-row" style="margin-top:8px"><input type="checkbox" name="trim" checked><span><div>Delete the days I leave unticked</div><div class="sub">Permanently removes them from the old Daybook data on this device. This cannot be undone.</div></span></label>')+
+      (legacyOverride?'':'<label class="carry-row" style="margin-top:8px"><input type="checkbox" name="trim"><span><div>Also delete the days I leave unticked</div><div class="sub">Optional. Permanently removes them from the old Daybook data on this device. This cannot be undone. Leave this off if unsure.</div></span></label>')+
       '<div class="actions"><button class="btn" type="submit">Bring in selected</button><button class="btn ghost" type="button" data-close="1">Cancel</button>'+
       '<span class="sp"></span>'+(legacyOverride?'':'<button class="link" type="button" data-act="legacy-download">Download all first</button>')+'</div></form>');
   }
@@ -819,7 +820,8 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
       '<li>The <b>Overview</b> shows your whole day. Switch it to 7 days or a month.</li>'+
       '<li>Tap <b>+</b> to add anything fast. Type a time like “6pm” or end with “!” to flag it.</li>'+
       '<li>Unfinished items only move to a new day when <b>you</b> say so.</li>'+
-      '<li>Your data stays on this device. Back it up to Google Drive in ⚙ Settings.</li></ul>'+
+      '<li>Your data stays on this device. Back it up to Google Drive in ⚙ Settings.</li>'+
+      '<li><b>Used the old Daybook?</b> Your entries stay inside the icon or browser where you used them, so open it from there. ⚙ Settings → Storage check shows what this one holds.</li></ul>'+
       '<button class="btn" data-act="welcome-ok">Got it</button></section>';
   }
   function nudgeBanner(){
@@ -1159,6 +1161,23 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
     state.drive={}; persist(); setSync('off'); openSettings();
   }
 
+  function storageCheckHtml(){
+    var standalone=!!((window.navigator&&navigator.standalone)||(window.matchMedia&&matchMedia('(display-mode: standalone)').matches));
+    var keys=[]; try{ for(var i=0;i<localStorage.length;i++){ var k=localStorage.key(i); if(k&&/^daybook/.test(k)) keys.push(k); } }catch(e){}
+    var oldN=0; try{ var d=JSON.parse(localStorage.getItem('daybook-data')||'null'); if(d){ oldN=(d.entries||[]).length; } }catch(e){}
+    var sheet=false; try{ sheet=!!localStorage.getItem('daybook-sheet-id'); }catch(e){}
+    var days={}; state.items.forEach(function(i){ if(i.date) days[i.date]=(days[i.date]||0)+1; });
+    var dl=Object.keys(days).sort();
+    var row=function(a,b){ return '<div style="display:flex;justify-content:space-between;gap:12px;padding:2px 0"><span class="sub">'+a+'</span><span style="text-align:right">'+b+'</span></div>'; };
+    return '<div class="field"><label>Storage check</label>'+
+      row('Opened as',standalone?'Home-screen app':'Browser tab')+
+      row('Address',esc(location.host+location.pathname))+
+      row('Pebble items here',state.items.length+(dl.length?' ('+esc(shortDate(dl[0]))+' to '+esc(shortDate(dl[dl.length-1]))+')':''))+
+      row('Old Daybook entries here',oldN)+
+      row('Old Google Sheet linked',sheet?'Yes':'No')+
+      row('Saved copies',keys.length+' ('+keys.filter(function(k){return /snap/.test(k);}).length+' daily snapshots)')+
+      '<div class="sub" style="margin-top:6px">Every home-screen icon, and the browser itself, keeps its <b>own</b> storage. If this says 0 old entries, your old data is in a different icon or browser, such as an older “Daybook” icon, Safari, or your iPad.</div></div>';
+  }
   function safetyHtml(){
     var h='<div class="field"><label>Old Daybook data</label>';
     if(legacyInfo){
@@ -1172,7 +1191,7 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
     if(snaps.length) h+=snaps.map(function(x){return '<div class="actions" style="margin:2px 0;align-items:center"><span class="sub sp">'+esc(shortDate(x.date))+' · '+x.count+' items</span><button class="btn ghost" data-act="snap-restore" data-snap="'+x.date+'">Restore</button></div>';}).join('')+
       '<div class="sub" style="margin-top:4px">Pebble keeps a copy from the start of each of the last 7 days on this device.</div>';
     else h+='<div class="sub">Snapshots will appear after your first full day of use.</div>';
-    h+='</div><div class="field"><button class="link" data-act="welcome-show" style="padding-left:0">Show the welcome tips again</button></div>';
+    h+='</div>'+storageCheckHtml()+'<div class="field"><button class="link" data-act="welcome-show" style="padding-left:0">Show the welcome tips again</button></div>';
     return h;
   }
   function openSettings(){
@@ -1225,6 +1244,11 @@ mark{background:var(--accent-soft);color:inherit;border-radius:2px;padding:0 1px
   document.addEventListener('click',function(e){
     var t=e.target, el;
     if(t.closest('[data-subrow]')) return;
+    if((el=t.closest('[data-lsel]'))){
+      var mode=el.getAttribute('data-lsel'), cut3=addDays(todayStr(),-3);
+      document.querySelectorAll('#legacyForm input[name=day]').forEach(function(c){ c.checked = mode==='all' ? true : mode==='none' ? false : (c.value>=cut3); });
+      return;
+    }
     if((el=t.closest('[data-qd]'))){ var di=document.querySelector('#editForm input[name=date]'); if(di) di.value=addDays(todayStr(),+el.getAttribute('data-qd')); return; }
     if((el=t.closest('[data-hit-edit]'))){ openEdit(el.getAttribute('data-hit-edit')); return; }
     if((el=t.closest('[data-hit]'))){
