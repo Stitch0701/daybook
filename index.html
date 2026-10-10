@@ -525,7 +525,7 @@ section.card.hero{background:var(--hero);box-shadow:var(--shadow)}
   function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
   function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
 
-  var ui = {tab:'overview', date:todayStr(), followToday:true, range:'day', view:'timeline', gaps:{}};
+  var ui = {tab:'overview', date:todayStr(), followToday:true, range:'day', view:'list', gaps:{}};
   try { var sv=localStorage.getItem('pebble-view'); if(sv==='list'||sv==='timeline') ui.view=sv; } catch(e){}
 
   // ---------- section helpers ----------
