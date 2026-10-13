@@ -419,6 +419,7 @@ section.card.hero{background:var(--hero);box-shadow:var(--shadow)}
 </header>
 <div class="wrap"><main id="app"></main></div>
 <button class="fab" id="fab" data-act="quickadd" aria-label="Add item" title="Add item">+</button>
+<div id="icHolder" hidden><div id="icAuth"><div id="apple-sign-in-button"></div><div id="apple-sign-out-button"></div></div></div>
 <div class="toasts" id="toasts"></div>
 <div id="modalRoot"></div>
 
@@ -1063,8 +1064,9 @@ section.card.hero{background:var(--hero);box-shadow:var(--shadow)}
   }
 
   // ---------- modals ----------
-  function openModal(html){ document.getElementById('modalRoot').innerHTML='<div class="modal" data-modal-bg="1"><div class="sheet"><div class="grab"></div>'+html+'</div></div>'; }
-  function closeModal(){ document.getElementById('modalRoot').innerHTML=''; if(legacyOverride){ legacyOverride=null; legacyInfo=computeLegacy(); } }
+  function parkIcAuth(){ var a=document.getElementById('icAuth'), h=document.getElementById('icHolder'); if(a&&h&&a.parentNode!==h) h.appendChild(a); }
+  function openModal(html){ parkIcAuth(); document.getElementById('modalRoot').innerHTML='<div class="modal" data-modal-bg="1"><div class="sheet"><div class="grab"></div>'+html+'</div></div>'; }
+  function closeModal(){ parkIcAuth(); document.getElementById('modalRoot').innerHTML=''; if(legacyOverride){ legacyOverride=null; legacyInfo=computeLegacy(); } }
   function optionsHtml(list,sel){ return list.map(function(o){return '<option value="'+o[0]+'"'+(String(sel==null?'':sel)===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join(''); }
 
 
@@ -1176,7 +1178,7 @@ section.card.hero{background:var(--hero);box-shadow:var(--shadow)}
       });
     });
   }
-  function closeModal0(){ document.getElementById('modalRoot').innerHTML=''; }
+  function closeModal0(){ parkIcAuth(); document.getElementById('modalRoot').innerHTML=''; }
   function legacyBanner(){
     if(!legacyInfo || (state.legacy && (state.legacy.imported||state.legacy.dismissed))) return '';
     return '<div class="banner" style="background:var(--accent-soft)"><span><b style="color:var(--accent)">Found your old Daybook data</b> · '+legacyInfo.count+' entries across '+legacyInfo.days+' days ('+esc(shortDate(legacyInfo.first))+' to '+esc(shortDate(legacyInfo.last))+'). Choose what to bring into Pebble.</span>'+
@@ -1189,7 +1191,7 @@ section.card.hero{background:var(--hero);box-shadow:var(--shadow)}
     try {
       var k=SNAP+todayStr(); if(localStorage.getItem(k)) return;
       if(!state.items.length && !Object.keys(state.wdays).length) return;
-      var c=Object.assign({},state); delete c.drive; delete c.fired;
+      var c=Object.assign({},state); delete c.drive; delete c.icloud; delete c.fired;
       localStorage.setItem(k,JSON.stringify(c));
       var keys=[]; for(var i=0;i<localStorage.length;i++){ var n=localStorage.key(i); if(n && n.indexOf(SNAP)===0) keys.push(n); }
       keys.sort().reverse().slice(7).forEach(function(n){ localStorage.removeItem(n); });
@@ -1207,7 +1209,7 @@ section.card.hero{background:var(--hero);box-shadow:var(--shadow)}
     if(!confirm('Replace what is on this device with the snapshot from '+longDate(date)+'? Your current data is kept as a safety copy first.')) return;
     try { localStorage.setItem('daybook2-before-restore', JSON.stringify(state)); } catch(e){}
     var data=JSON.parse(raw), keep=state.drive; delete data.drive;
-    var oldSt=state; localStorage.setItem(KEY,JSON.stringify(data)); state=load(); state.drive=keep||{}; tombstoneMissing(oldSt); persist(); applyTheme(); closeModal(); render(); toast('Restored the snapshot from '+shortDate(date));
+    var oldSt=state; localStorage.setItem(KEY,JSON.stringify(data)); state=load(); state.drive=keep||{}; state.icloud=oldSt.icloud; tombstoneMissing(oldSt); persist(); applyTheme(); closeModal(); render(); toast('Restored the snapshot from '+shortDate(date));
   }
 
   // ---------- friendliness: welcome, backup nudge, quick add ----------
@@ -1400,7 +1402,7 @@ section.card.hero{background:var(--hero);box-shadow:var(--shadow)}
       .then(function(r){return r.json();}).then(function(j){ return j.files||[]; });
   }
   function findBackup(interactive){ return listBackups(interactive).then(function(fs){ return fs[0]||null; }); }
-  function backupPayload(){ var c=Object.assign({},state); delete c.drive; return JSON.stringify(c); }
+  function backupPayload(){ var c=Object.assign({},state); delete c.drive; delete c.icloud; return JSON.stringify(c); }
 
   function stable(o){
     if(Array.isArray(o)) return '['+o.map(stable).join(',')+']';
@@ -1448,12 +1450,16 @@ section.card.hero{background:var(--hero);box-shadow:var(--shadow)}
   function setSync(st){
     if(st) syncState=st;
     var b=document.getElementById('syncBtn'); if(!b) return;
-    var on=!!(state.drive && state.drive.connected);
-    b.hidden=!on; if(!on) return;
-    var last=state.drive.lastBackup?' · last '+new Date(state.drive.lastBackup).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}):'';
-    b.innerHTML = hsvg(syncState==='ok'||syncState==='syncing'?'cloud':'cloudwarn'); b.classList.toggle('spin',syncState==='syncing');
-    b.title = syncState==='ok'?'Synced'+last : syncState==='syncing'?'Syncing…' : syncState==='auth'?'Tap to reconnect Google and sync' : 'Sync problem. Tap to retry';
-    b.setAttribute('aria-label',b.title); b.style.color=(syncState==='auth'||syncState==='err')?'var(--warn)':'';
+    var gOn=!!(state.drive && state.drive.connected), iOn=icConfigured();
+    b.hidden=!(gOn||iOn); if(!(gOn||iOn)) return;
+    var sts=[]; if(gOn) sts.push(syncState); if(iOn) sts.push(icState);
+    var eff=sts.indexOf('syncing')>=0?'syncing':(sts.indexOf('auth')>=0?'auth':(sts.indexOf('err')>=0?'err':'ok'));
+    var lastIso=(state.icloud&&state.icloud.last)||(state.drive&&state.drive.lastBackup)||'';
+    var last=lastIso?' · last '+new Date(lastIso).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}):'';
+    var who=gOn&&iOn?'Google and iCloud':(iOn?'iCloud':'Google');
+    b.innerHTML = hsvg(eff==='ok'||eff==='syncing'?'cloud':'cloudwarn'); b.classList.toggle('spin',eff==='syncing');
+    b.title = eff==='ok'?'Synced'+last : eff==='syncing'?'Syncing…' : eff==='auth'?'Tap to reconnect '+who+' and sync' : 'Sync problem. Tap to retry';
+    b.setAttribute('aria-label',b.title); b.style.color=(eff==='auth'||eff==='err')?'var(--warn)':'';
   }
   // Pull what the other device saved, merge it with this device, then push the combined result.
   function syncNow(interactive){
@@ -1494,14 +1500,18 @@ section.card.hero{background:var(--hero);box-shadow:var(--shadow)}
   }
   var syncTimer=null;
   function scheduleBackup(){
-    var d=state.drive;
-    if(!d || !d.connected || d.auto===false || !tokenValid()) return;
+    var d=state.drive, driveOn=!!(d && d.connected && d.auto!==false && tokenValid()), icOn=icReady();
+    if(!driveOn && !icOn) return;
     clearTimeout(syncTimer);
-    syncTimer=setTimeout(function(){ syncNow(false).catch(function(){}); },6000);
+    syncTimer=setTimeout(function(){
+      if(driveOn && tokenValid()) syncNow(false).catch(function(){});
+      if(icReady()) icSync(false).catch(function(){});
+    },6000);
   }
   function syncIfConnected(){
-    var d=state.drive; if(!d || !d.connected || d.auto===false) return;
-    getToken(false).then(function(){ return syncNow(false); }).catch(function(){ setSync('auth'); });
+    var d=state.drive;
+    if(d && d.connected && d.auto!==false) getToken(false).then(function(){ return syncNow(false); }).catch(function(){ setSync('auth'); });
+    if(icReady()) icSync(false).catch(function(){});
   }
 
   function driveHtml(){
@@ -1546,7 +1556,7 @@ section.card.hero{background:var(--hero);box-shadow:var(--shadow)}
           var when=f.modifiedTime?new Date(f.modifiedTime).toLocaleString():'unknown time';
           if(!confirm('Replace the data on this device with the Drive backup from '+when+' ('+data.items.length+' items)? Export first if unsure.')) return 'Restore cancelled';
           var keep=state.drive; delete data.drive;
-          var oldSt=state; localStorage.setItem(KEY,JSON.stringify(data)); state=load(); state.drive=keep; state.drive.fileId=f.id; tombstoneMissing(oldSt); persist();
+          var oldSt=state; localStorage.setItem(KEY,JSON.stringify(data)); state=load(); state.drive=keep; state.icloud=oldSt.icloud; state.drive.fileId=f.id; tombstoneMissing(oldSt); persist();
           applyTheme(); render(); return 'Restored from Google Drive';
         });
       });
@@ -1592,7 +1602,120 @@ section.card.hero{background:var(--hero);box-shadow:var(--shadow)}
     h+='</div>'+storageCheckHtml()+'<div class="field"><button class="link" data-act="welcome-show" style="padding-left:0">Show the welcome tips again</button></div>';
     return h;
   }
-  function openSettings(){
+
+  // ---------- iCloud sync (Apple CloudKit JS) ----------
+  var CK_URL='https://cdn.apple-cloudkit.com/ck/2/cloudkit.js';
+  var ck={container:null,user:null,booting:false,error:''}, icState='off', icSyncing=false;
+  function icCfg(){ return state.icloud||(state.icloud={}); }
+  function icConfigured(){ var c=state.icloud; return !!(c && c.container && c.token); }
+  function icReady(){ return !!(ck.container && ck.user); }
+  function icStatusText(){
+    if(icState==='syncing') return 'Syncing…';
+    if(icState==='ok'){ var l=state.icloud&&state.icloud.last; return 'Signed in with your Apple ID'+(l?' · last synced '+new Date(l).toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):' · not synced yet'); }
+    if(icState==='auth') return ck.container?'Not signed in. Use the Apple button below.':'Starting iCloud…';
+    if(icState==='err') return 'Problem: '+(ck.error||'could not reach iCloud');
+    return '';
+  }
+  function setIc(st){ icState=st; setSync(); var el=document.getElementById('icStatus'); if(el) el.textContent=icStatusText(); }
+  function loadCk(cb){
+    if(window.CloudKit) return cb();
+    var ex=document.getElementById('ckjs');
+    if(ex){ ex.addEventListener('load',function(){cb();}); ex.addEventListener('error',function(){cb(new Error('Could not load Apple CloudKit'));}); return; }
+    var sc=document.createElement('script'); sc.id='ckjs'; sc.src=CK_URL; sc.async=true;
+    sc.onload=function(){cb();}; sc.onerror=function(){cb(new Error('Could not load Apple CloudKit. Check your connection.'));};
+    document.head.appendChild(sc);
+  }
+  function updateAuthButtons(){
+    var i=document.getElementById('apple-sign-in-button'), o=document.getElementById('apple-sign-out-button');
+    if(i) i.style.display=ck.user?'none':''; if(o) o.style.display=ck.user?'':'none';
+  }
+  function mountIcAuth(){ var ph=document.getElementById('icPlaceholder'), a=document.getElementById('icAuth'); if(ph&&a){ ph.appendChild(a); updateAuthButtons(); } }
+  function icWatchSignIn(){ try{ ck.container.whenUserSignsIn().then(function(u){ icAuthed(u); }).catch(function(){}); }catch(e){} }
+  function icAuthed(user){
+    if(user){
+      ck.user=user; ck.error=''; setIc('ok'); updateAuthButtons();
+      try{ ck.container.whenUserSignsOut().then(function(){ ck.user=null; setIc('auth'); updateAuthButtons(); icWatchSignIn(); }).catch(function(){}); }catch(e){}
+      icSync(false).catch(function(){});
+    } else { ck.user=null; setIc('auth'); updateAuthButtons(); icWatchSignIn(); }
+  }
+  function icBoot(){
+    if(!icConfigured() || ck.container || ck.booting) return;
+    ck.booting=true; setIc('auth');
+    loadCk(function(err){
+      if(err){ ck.booting=false; ck.error=err.message; setIc('err'); return; }
+      try{
+        var c=icCfg();
+        CloudKit.configure({containers:[{containerIdentifier:c.container,
+          apiTokenAuth:{apiToken:c.token,persist:true,signInButton:{id:'apple-sign-in-button',theme:'black'},signOutButton:{id:'apple-sign-out-button',theme:'black'}},
+          environment:c.env||'development'}]});
+        ck.container=CloudKit.getDefaultContainer();
+      } catch(e){ ck.booting=false; ck.error=(e&&e.message)||'Could not set up iCloud'; setIc('err'); return; }
+      ck.booting=false;
+      ck.container.setUpAuth().then(function(user){ icAuthed(user); }).catch(function(e){ ck.error=(e&&e.message)||'Apple sign-in failed'; setIc('err'); });
+    });
+  }
+  function icErr(resp){
+    var bad=((resp&&resp.records)||[]).filter(function(r){return r.serverErrorCode;})[0];
+    var e=new Error(bad?(bad.serverErrorCode+(bad.reason?': '+bad.reason:'')):'iCloud error'); e.code=bad&&bad.serverErrorCode; return e;
+  }
+  // Same merge as Google Drive: pull the iCloud copy, merge, push the combined result (one record named "state").
+  function icSync(interactive){
+    if(!icReady()) return Promise.reject(new Error('Sign in with your Apple ID first'));
+    if(icSyncing) return Promise.resolve(false);
+    icSyncing=true; setIc('syncing');
+    var db=ck.container.privateCloudDatabase, tries=0;
+    var attempt=function(){
+      return db.fetchRecords(['state']).then(function(resp){
+        var recs=(resp&&resp.records)||[], rec=recs.filter(function(r){return r.fields&&r.fields.data;})[0]||null;
+        var other=recs.filter(function(r){return r.serverErrorCode && r.serverErrorCode!=='NOT_FOUND';})[0];
+        if(!rec && other) throw icErr(resp);
+        var changed=false, remoteCanon=null;
+        if(rec){
+          var R=null; try{ R=JSON.parse(rec.fields.data.value); }catch(e){}
+          if(R && Array.isArray(R.items)){ remoteCanon=canon(R); if(mergeRemote(R)) changed=true; }
+        }
+        if(changed){
+          persist();
+          var ae=document.activeElement;
+          if(ae && /^(input|textarea|select)$/i.test(ae.tagName)) toast('Updated from your other device'); else render();
+        }
+        if(rec && remoteCanon===canon(state)) return;
+        var payload=backupPayload();
+        if(payload.length>900000) throw new Error('Pebble has too much data for one iCloud record. Delete old items or clear done groceries.');
+        var r={recordType:'PebbleState',recordName:'state',fields:{data:{value:payload}}};
+        if(rec) r.recordChangeTag=rec.recordChangeTag;
+        return db.saveRecords(r).then(function(sr){
+          var bad=((sr&&sr.records)||[]).filter(function(x){return x.serverErrorCode;})[0];
+          if(bad){ if(/^(CONFLICT|EXISTS)$/.test(bad.serverErrorCode) && tries++<3) return attempt(); throw icErr(sr); }
+        });
+      });
+    };
+    return attempt().then(function(){
+      icCfg().last=new Date().toISOString(); persist(); icSyncing=false; setIc('ok'); return true;
+    },function(e){
+      icSyncing=false; ck.error=(e&&e.message)||'iCloud sync failed';
+      setIc(/AUTH|ACCESS|sign/i.test((e&&(e.code||e.message))||'')?'auth':'err'); throw e;
+    });
+  }
+  function icRun(){ driveRun('Syncing with iCloud',function(){ return icSync(true).then(function(){ return 'Synced with iCloud'; }); }); }
+  function icloudHtml(){
+    var h='<div class="field"><label>iCloud sync (Apple ID)</label>';
+    if(!icConfigured()){
+      return h+'<div class="sub" style="margin-bottom:8px">Keeps your iPhone, iPad and Mac in step through your own iCloud. It needs a one-time setup in Apple’s CloudKit dashboard (Apple Developer Program). <a href="https://github.com/Stitch0701/daybook/blob/main/docs/ICLOUD_SETUP.md" target="_blank" rel="noopener" style="color:var(--accent)">Step-by-step guide</a></div>'+
+        '<input type="text" id="icContainer" placeholder="Container ID (starts with iCloud.)" autocapitalize="off" autocorrect="off" spellcheck="false" style="margin-bottom:8px">'+
+        '<input type="text" id="icToken" placeholder="API token" autocapitalize="off" autocorrect="off" spellcheck="false" style="margin-bottom:8px">'+
+        '<select id="icEnv" style="margin-bottom:8px" aria-label="Environment"><option value="development">Development (start here)</option><option value="production">Production</option></select>'+
+        '<div class="actions" style="margin-top:0"><button class="btn" data-act="ic-save">Save and continue</button><button class="btn ghost" data-act="ic-paste">Paste setup code</button></div></div>';
+    }
+    return h+'<div class="sub" id="icStatus" style="margin-bottom:6px">'+esc(icStatusText())+'</div><div id="icPlaceholder" style="margin:6px 0 10px"></div>'+
+      '<div class="actions" style="margin-top:0">'+(icReady()?'<button class="btn ghost" data-act="ic-sync">Sync now</button>':'')+
+      '<button class="btn ghost" data-act="ic-copy">Copy setup code</button><button class="btn danger" data-act="ic-off">Disconnect</button></div>'+
+      '<div class="sub" style="margin-top:6px">On your other device: Settings → iCloud sync → <b>Paste setup code</b>, then sign in with the same Apple ID.</div></div>';
+  }
+
+  function openSettings(){ openSettingsRaw(); mountIcAuth(); }
+
+  function openSettingsRaw(){
     var perm = window.Notification ? Notification.permission : 'unsupported';
     openModal('<h3>Settings</h3>'+
       '<div class="field"><label>Theme</label><select id="themeSel">'+optionsHtml([['','Match device'],['light','Light'],['dark','Dark']],state.theme)+'</select></div>'+
@@ -1610,7 +1733,7 @@ section.card.hero{background:var(--hero);box-shadow:var(--shadow)}
         '<button class="btn ghost" data-act="backup">Export data</button>'+
         '<label class="btn ghost" style="cursor:pointer">Import data<input type="file" id="importFile" accept="application/json" hidden></label></div>'+
         '<div class="sub" style="margin-top:4px">Data is stored on this device. Export a file, or back up to Google Drive below.</div></div>'+
-      driveHtml()+safetyHtml()+
+      driveHtml()+icloudHtml()+safetyHtml()+
       '<div class="actions"><button class="btn" data-close="1">Done</button></div>');
   }
 
@@ -1741,10 +1864,33 @@ section.card.hero{background:var(--hero);box-shadow:var(--shadow)}
       }
       else if(act==='drive-connect') driveConnect();
       else if(act==='drive-backup') driveSyncClick();
-      else if(act==='sync'){ if(tokenValid()) driveSyncClick(); else { driveRun('Reconnecting',function(){ return getToken(true).then(function(){ return syncNow(true); }).then(function(){ return 'Synced'; }); }); } }
+      else if(act==='sync'){
+        var gOn=!!(state.drive && state.drive.connected);
+        if(gOn){ if(tokenValid()) driveSyncClick(); else driveRun('Reconnecting',function(){ return getToken(true).then(function(){ return syncNow(true); }).then(function(){ return 'Synced'; }); }); }
+        else if(icReady()) icRun();
+        else openSettings();
+      }
+      else if(act==='ic-sync') icRun();
+      else if(act==='ic-save'){
+        var cn=document.getElementById('icContainer').value.trim(), tk=document.getElementById('icToken').value.trim(), ev=document.getElementById('icEnv').value;
+        if(!cn||!tk){ toast('Enter both the container ID and the API token'); }
+        else { state.icloud={container:cn,token:tk,env:ev}; persist(); toast('Saved. Restarting…'); setTimeout(function(){ location.reload(); },500); }
+      }
+      else if(act==='ic-copy'){
+        var c2=icCfg(), code=btoa(unescape(encodeURIComponent(JSON.stringify({c:c2.container,t:c2.token,e:c2.env}))));
+        if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(code).then(function(){ toast('Setup code copied. Paste it on your other device.'); },function(){ prompt('Copy this setup code:',code); });
+        else prompt('Copy this setup code:',code);
+      }
+      else if(act==='ic-paste'){
+        var pc=prompt('Paste the setup code from your other device');
+        if(pc){ try{ var o=JSON.parse(decodeURIComponent(escape(atob(pc.trim())))); if(!o.c||!o.t) throw 0;
+          state.icloud={container:o.c,token:o.t,env:o.e||'development'}; persist(); toast('Setup code accepted. Restarting…'); setTimeout(function(){ location.reload(); },500);
+        } catch(e){ toast('That is not a Pebble setup code'); } }
+      }
+      else if(act==='ic-off'){ if(confirm('Disconnect iCloud sync on this device? Your data stays on this device and in iCloud.')){ state.icloud={}; persist(); location.reload(); } }
       else if(act==='drive-restore') driveRestoreClick();
       else if(act==='drive-disconnect') driveDisconnect();
-      else if(act==='backup'){ state.lastExport=todayStr(); persist(); download('pebble-backup-'+todayStr()+'.json','application/json',JSON.stringify(state,null,2)); }
+      else if(act==='backup'){ state.lastExport=todayStr(); persist(); download('pebble-backup-'+todayStr()+'.json','application/json',JSON.stringify((function(){ var c=Object.assign({},state); delete c.icloud; return c; })(),null,2)); }
     }
   });
 
@@ -1798,7 +1944,7 @@ section.card.hero{background:var(--hero);box-shadow:var(--shadow)}
         try {
           var d=JSON.parse(r.result);
           if(!d||!Array.isArray(d.items)) throw 0;
-          var keepDrive=state.drive, oldSt=state; delete d.drive; localStorage.setItem(KEY,JSON.stringify(d)); state=load(); state.drive=keepDrive||{}; tombstoneMissing(oldSt); persist(); applyTheme(); closeModal(); render(); toast('Imported');
+          var keepDrive=state.drive, oldSt=state; delete d.drive; localStorage.setItem(KEY,JSON.stringify(d)); state=load(); state.drive=keepDrive||{}; state.icloud=oldSt.icloud; tombstoneMissing(oldSt); persist(); applyTheme(); closeModal(); render(); toast('Imported');
         } catch(err){ toast('That file is not a Pebble backup'); }
       };
       r.readAsText(t.files[0]);
@@ -1955,7 +2101,8 @@ section.card.hero{background:var(--hero);box-shadow:var(--shadow)}
   if(loadProblem) toast('Saved data could not be read. A copy was kept. See Settings → snapshots.');
   setSync(state.drive&&state.drive.connected?'auth':'off');
   syncIfConnected();
-  setInterval(function(){ if(!document.hidden && tokenValid()) syncIfConnected(); },60000);
+  setInterval(function(){ if(!document.hidden && (tokenValid()||icReady())) syncIfConnected(); },60000);
+  icBoot();
   if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function(){});
 })();
 </script>
